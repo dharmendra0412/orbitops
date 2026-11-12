@@ -18,6 +18,17 @@ type PropulsionResult = {
 };
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
 
+type PowerResult = {
+  supply_energy: EngineeringOutput;
+  load_energy: EngineeringOutput;
+  energy_margin: EngineeringOutput;
+  margin_fraction: EngineeringOutput;
+  model_version: string;
+  equation_id: string;
+  assumptions: string[];
+  limitations: string[];
+};
+
 const workstreams = [
   { icon: Database, title: "Scientific data", detail: "Dataset manifests, source traceability and SHA-256 upload inspection", state: "Manifest + checksum API live", ready: true },
   { icon: Atom, title: "Physics models", detail: "Versioned ideal propulsion equation with explicit assumptions and limitations", state: "Ideal rocket model · UNVALIDATED", ready: false },
@@ -57,6 +68,12 @@ export default function App() {
   const [modelState, setModelState] = useState<ModelState>("idle");
   const [modelResult, setModelResult] = useState<PropulsionResult | null>(null);
   const [modelError, setModelError] = useState("");
+  const [supplyPower, setSupplyPower] = useState("");
+  const [loadPower, setLoadPower] = useState("");
+  const [durationHours, setDurationHours] = useState("");
+  const [powerState, setPowerState] = useState<ModelState>("idle");
+  const [powerResult, setPowerResult] = useState<PowerResult | null>(null);
+  const [powerError, setPowerError] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -138,6 +155,45 @@ export default function App() {
       setModelState("error");
     }
   }
+
+  async function calculateEnergyBalance() {
+    const supply = Number(supplyPower);
+    const load = Number(loadPower);
+    const duration = Number(durationHours);
+    if (!Number.isFinite(supply) || supply < 0 || !Number.isFinite(load) || load <= 0 || !Number.isFinite(duration) || duration <= 0) {
+      setPowerError("Enter a non-negative supply power and positive load power and duration.");
+      setPowerState("error");
+      return;
+    }
+
+    const request = {
+      supply_power: engineeringInput("ui.supply-power", "Average supply power", supply, "W", "power"),
+      load_power: engineeringInput("ui.load-power", "Average load power", load, "W", "power"),
+      duration: engineeringInput("ui.duration", "Interval duration", duration, "h", "time"),
+      intended_use: "Preliminary constant-power energy bookkeeping only; not a mission power-system design.",
+    };
+
+    setPowerState("calculating");
+    setPowerError("");
+    setPowerResult(null);
+    try {
+      const response = await fetch(apiBase + "/api/v1/models/power/simple-energy-balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(typeof payload.detail === "string" ? payload.detail : "Power model calculation failed");
+      }
+      setPowerResult(payload as PowerResult);
+      setPowerState("success");
+    } catch (error) {
+      setPowerError(error instanceof Error ? error.message : "Unexpected power model error");
+      setPowerState("error");
+    }
+  }
+
 
   return (
     <main className="shell">
@@ -256,6 +312,48 @@ export default function App() {
               <ul>{modelResult.limitations.map((item) => <li key={item}>{item}</li>)}</ul>
             </div>
             <a className="api-docs-link" href={modelResult.equation_reference} target="_blank" rel="noreferrer">NASA equation reference ↗</a>
+          </div>
+        )}
+      </section>
+
+      <section className="model-panel">
+        <div className="ingestion-heading">
+          <span className="card-icon"><Activity size={20} /></span>
+          <div><div className="eyebrow">POWER MODEL · V0.1.0</div><h2>Constant-power energy balance</h2></div>
+        </div>
+        <p className="ingestion-copy">Compare average supply and load power over a fixed interval. This simple energy bookkeeping model does not represent batteries, eclipse periods, transient loads or power-system losses.</p>
+        <div className="model-form">
+          <label className="model-field">Average supply power <span>W</span>
+            <input type="number" min="0" step="any" placeholder="Enter supply power" value={supplyPower} onChange={(event) => setSupplyPower(event.target.value)} />
+          </label>
+          <label className="model-field">Average load power <span>W</span>
+            <input type="number" min="0.000001" step="any" placeholder="Enter load power" value={loadPower} onChange={(event) => setLoadPower(event.target.value)} />
+          </label>
+          <label className="model-field">Analysis duration <span>hours</span>
+            <input type="number" min="0.000001" step="any" placeholder="Enter duration" value={durationHours} onChange={(event) => setDurationHours(event.target.value)} />
+          </label>
+        </div>
+        <button className="inspect-button model-button" type="button" onClick={calculateEnergyBalance} disabled={apiStatus !== "online" || powerState === "calculating"}>
+          {powerState === "calculating" ? <LoaderCircle size={16} className="spin" /> : <Calculator size={16} />}
+          {powerState === "calculating" ? "Calculating..." : "Calculate energy balance"}
+        </button>
+        {powerError && <p className="inline-error">{powerError}</p>}
+        {apiStatus === "offline" && <p className="inline-warning">Connect the ORBITOPS API to run the model.</p>}
+        {powerResult && powerState === "success" && (
+          <div className="model-result">
+            <div className="result-heading"><CheckCircle2 size={17} /> Calculation complete · UNVALIDATED</div>
+            <div className="model-metrics">
+              <div><dt>Supply energy</dt><dd>{powerResult.supply_energy.value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>Wh</small></dd></div>
+              <div><dt>Load energy</dt><dd>{powerResult.load_energy.value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>Wh</small></dd></div>
+              <div><dt>Energy margin</dt><dd>{powerResult.energy_margin.value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>Wh</small></dd></div>
+            </div>
+            <div className="model-meta">Margin fraction {(powerResult.margin_fraction.value * 100).toFixed(2)}% · Equation {powerResult.equation_id} · Model {powerResult.model_version}</div>
+            <div className="model-assumptions">
+              <strong>Assumptions</strong>
+              <ul>{powerResult.assumptions.map((item) => <li key={item}>{item}</li>)}</ul>
+              <strong>Limitations</strong>
+              <ul>{powerResult.limitations.map((item) => <li key={item}>{item}</li>)}</ul>
+            </div>
           </div>
         )}
       </section>
