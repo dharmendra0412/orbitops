@@ -15,6 +15,16 @@ The `engineering-grade-foundation` branch establishes the initial application fo
 - Tests: pytest, FastAPI TestClient
 - CI: GitHub Actions
 
+## Implemented foundation
+
+- Engineering-value contracts with unit dimension and provenance metadata.
+- Dataset manifest validation with source/product version, file identity, checksum, license/access, coordinate frame, time system, and variable-unit metadata.
+- Bounded SHA-256 upload inspection (100 MiB maximum); uploaded bytes are not persisted.
+- Interactive frontend file-inspection panel and API connectivity indicator.
+- Automated backend lint/tests and frontend typecheck/build.
+
+The checksum endpoint computes a digest for uploaded bytes; it does not authenticate a source, download remote data, or establish scientific suitability.
+
 ## Local development
 
 ### Backend
@@ -30,6 +40,8 @@ uvicorn app.main:app --reload
 
 Health endpoint: `http://127.0.0.1:8000/api/v1/health`
 
+API documentation: `http://127.0.0.1:8000/docs`
+
 ### Frontend
 
 ```bash
@@ -38,7 +50,14 @@ npm install
 npm run dev
 ```
 
-Set `VITE_API_BASE_URL=http://127.0.0.1:8000` in `frontend/.env.local` when the API is not served from the same origin.
+The Vite development server proxies `/api` requests to `http://127.0.0.1:8000`. Set `VITE_API_BASE_URL` in `frontend/.env.local` only when the API is hosted on a different origin. Configure the backend CORS allowlist for that deployed frontend origin.
+
+## Dataset API
+
+- `POST /api/v1/datasets/checksum` — multipart upload; returns filename, media type, byte size, and SHA-256. Maximum 100 MiB; no persistence.
+- `POST /api/v1/datasets/manifests/validate` — validates dataset provenance and metadata contract.
+
+See [the data ingestion contract](docs/DATA_INGESTION_CONTRACT.md) for limits and non-goals.
 
 ## Engineering integrity rules
 
@@ -52,7 +71,7 @@ Set `VITE_API_BASE_URL=http://127.0.0.1:8000` in `frontend/.env.local` when the 
 
 ## Planned engineering modules
 
-The first implementation phases will establish controlled data ingestion and provenance, then independently testable engineering models for geometry, trajectory/propulsion, power, thermal behavior, communications, and mission operations. Each model must have a defined intended use and acceptance evidence before it can produce an engineering-grade result.
+After controlled data ingestion, the next phases are scientific source curation and independently testable models for geometry, trajectory/propulsion, power, thermal behavior, communications, and mission operations. Each model must have a defined intended use and acceptance evidence before it can produce an engineering-grade result.
 
 ## Branch policy
 
