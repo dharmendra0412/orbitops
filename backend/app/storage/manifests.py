@@ -14,9 +14,9 @@ class ManifestAlreadyExistsError(Exception):
 
 
 class ManifestStore:
-    """Small SQLite-backed registry; uploaded file bytes are never stored here."""
+    """SQLite-backed registry for dataset metadata and model-run schema."""
 
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
 
     def __init__(self, database_path: str | Path) -> None:
         self.database_path = Path(database_path)
@@ -51,6 +51,19 @@ class ManifestStore:
                     payload_json TEXT NOT NULL,
                     checksum_sha256 TEXT NOT NULL,
                     created_at TEXT NOT NULL,
+                    schema_version INTEGER NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS model_runs (
+                    run_id TEXT PRIMARY KEY,
+                    model_id TEXT NOT NULL,
+                    model_version TEXT NOT NULL,
+                    equation_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
                     schema_version INTEGER NOT NULL
                 )
                 """

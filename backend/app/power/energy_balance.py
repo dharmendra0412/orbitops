@@ -1,4 +1,5 @@
 """Simple constant-power energy balance model with explicit limitations."""
+from datetime import datetime
 from math import isfinite
 from typing import Annotated
 
@@ -7,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.engineering.provenance import CredibilityStatus, EngineeringValue, ProvenanceClass
 from app.engineering.units import Dimension
 
+MODEL_ID = "power.simple-energy-balance"
 MODEL_VERSION = "0.1.0"
 EQUATION_ID = "POWER.SIMPLE_ENERGY_BALANCE.V1"
 
@@ -54,6 +56,9 @@ class SimpleEnergyBalanceResult(BaseModel):
     model_version: str
     assumptions: list[str]
     limitations: list[str]
+    run_id: str | None = None
+    created_at: datetime | None = None
+    model_id: str = MODEL_ID
 
 
 def calculate_simple_energy_balance(

@@ -1,4 +1,5 @@
 """Ideal Tsiolkovsky rocket-equation model with explicit limitations."""
+from datetime import datetime
 from math import isfinite, log
 from typing import Annotated
 
@@ -12,6 +13,7 @@ from app.engineering.provenance import (
 )
 from app.engineering.units import Dimension
 
+MODEL_ID = "propulsion.ideal-rocket-equation"
 MODEL_VERSION = "0.1.0"
 DELTA_V_EQUATION_ID = "PROPULSION.IDEAL_ROCKET_EQUATION.V1"
 MASS_SUM_EQUATION_ID = "PROPULSION.INITIAL_MASS_SUM.V1"
@@ -87,6 +89,9 @@ class IdealRocketEquationResult(BaseModel):
     equation_reference: str
     assumptions: list[str]
     limitations: list[str]
+    run_id: str | None = None
+    created_at: datetime | None = None
+    model_id: str = MODEL_ID
 
 
 def calculate_ideal_delta_v(
