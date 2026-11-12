@@ -1,14 +1,26 @@
 import { useEffect, useState } from "react";
-import { Activity, Atom, CheckCircle2, Copy, Database, FileCheck2, Gauge, Layers3, LoaderCircle, ShieldCheck, Satellite, UploadCloud } from "lucide-react";
+import { Activity, Atom, CheckCircle2, Copy, Database, FileCheck2, Gauge, Layers3, LoaderCircle, ShieldCheck, Satellite, UploadCloud, Calculator } from "lucide-react";
 
 type ApiStatus = "checking" | "online" | "offline";
 type UploadState = "idle" | "uploading" | "success" | "error";
 type UploadResult = { file_name: string; media_type: string; file_size_bytes: number; checksum_sha256: string; storage_status: string };
+type ModelState = "idle" | "calculating" | "success" | "error";
+type EngineeringOutput = { value: number; unit: string; credibility: string };
+type PropulsionResult = {
+  delta_v: EngineeringOutput;
+  initial_mass: EngineeringOutput;
+  mass_ratio: EngineeringOutput;
+  model_version: string;
+  equation_id: string;
+  assumptions: string[];
+  limitations: string[];
+  equation_reference: string;
+};
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
 
 const workstreams = [
   { icon: Database, title: "Scientific data", detail: "Dataset manifests, source traceability and SHA-256 upload inspection", state: "Manifest + checksum API live", ready: true },
-  { icon: Atom, title: "Physics models", detail: "Explicit equations, assumptions, units and model versioning", state: "Not yet released", ready: false },
+  { icon: Atom, title: "Physics models", detail: "Versioned ideal propulsion equation with explicit assumptions and limitations", state: "Ideal rocket model · UNVALIDATED", ready: false },
   { icon: Gauge, title: "Engineering analysis", detail: "Mass, trajectory, power, thermal and communications budgets", state: "Not yet released", ready: false },
   { icon: FileCheck2, title: "Verification & validation", detail: "Test vectors, independent references and uncertainty evidence", state: "Evidence required", ready: false },
 ];
@@ -19,12 +31,32 @@ function formatBytes(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(2) + " MB";
 }
 
+function engineeringInput(valueId: string, name: string, value: number, unit: string, dimension: string) {
+  return {
+    value_id: valueId,
+    name,
+    value,
+    unit,
+    dimension,
+    provenance: "illustrative",
+    assumption_note: "Entered in ORBITOPS UI; user-supplied and not source-verified.",
+    intended_use: "Preliminary ideal rocket-equation exploration only.",
+    credibility: "unvalidated",
+  };
+}
+
 export default function App() {
   const [apiStatus, setApiStatus] = useState<ApiStatus>("checking");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [uploadError, setUploadError] = useState("");
+  const [dryMass, setDryMass] = useState("");
+  const [propellantMass, setPropellantMass] = useState("");
+  const [specificImpulse, setSpecificImpulse] = useState("");
+  const [modelState, setModelState] = useState<ModelState>("idle");
+  const [modelResult, setModelResult] = useState<PropulsionResult | null>(null);
+  const [modelError, setModelError] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -66,6 +98,44 @@ export default function App() {
       await navigator.clipboard.writeText(uploadResult.checksum_sha256);
     } catch {
       setUploadError("Clipboard access is unavailable in this browser context.");
+    }
+  }
+
+  async function calculateIdealDeltaV() {
+    const dry = Number(dryMass);
+    const propellant = Number(propellantMass);
+    const isp = Number(specificImpulse);
+    if (![dry, propellant, isp].every((value) => Number.isFinite(value) && value > 0)) {
+      setModelError("Enter positive numeric values for all three inputs.");
+      setModelState("error");
+      return;
+    }
+
+    const request = {
+      dry_mass: engineeringInput("ui.dry-mass", "Dry mass", dry, "kg", "mass"),
+      propellant_mass: engineeringInput("ui.propellant-mass", "Propellant mass", propellant, "kg", "mass"),
+      specific_impulse: engineeringInput("ui.specific-impulse", "Specific impulse", isp, "s", "time"),
+      intended_use: "Preliminary ideal rocket-equation exploration only; not a mission design result.",
+    };
+
+    setModelState("calculating");
+    setModelError("");
+    setModelResult(null);
+    try {
+      const response = await fetch(apiBase + "/api/v1/models/propulsion/ideal-delta-v", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(typeof payload.detail === "string" ? payload.detail : "Model calculation failed");
+      }
+      setModelResult(payload as PropulsionResult);
+      setModelState("success");
+    } catch (error) {
+      setModelError(error instanceof Error ? error.message : "Unexpected model error");
+      setModelState("error");
     }
   }
 
@@ -145,6 +215,49 @@ export default function App() {
           </div>
         )}
         <a className="api-docs-link" href={apiBase + "/docs"} target="_blank" rel="noreferrer">Open API documentation ↗</a>
+      </section>
+
+      <section className="model-panel">
+        <div className="ingestion-heading">
+          <span className="card-icon"><Calculator size={20} /></span>
+          <div><div className="eyebrow">PROPULSION MODEL · V0.1.0</div><h2>Ideal rocket-equation explorer</h2></div>
+        </div>
+        <p className="ingestion-copy">Estimate ideal delta-v from dry mass, propellant mass and specific impulse. All values entered here are tagged as illustrative and unvalidated; provide your own sourced inputs in the API for a traceable engineering record.</p>
+        <div className="model-form">
+          <label className="model-field">Dry mass <span>kg</span>
+            <input type="number" min="0.000001" step="any" placeholder="Enter dry mass" value={dryMass} onChange={(event) => setDryMass(event.target.value)} />
+          </label>
+          <label className="model-field">Propellant mass <span>kg</span>
+            <input type="number" min="0.000001" step="any" placeholder="Enter propellant mass" value={propellantMass} onChange={(event) => setPropellantMass(event.target.value)} />
+          </label>
+          <label className="model-field">Specific impulse <span>s</span>
+            <input type="number" min="0.000001" step="any" placeholder="Enter Isp" value={specificImpulse} onChange={(event) => setSpecificImpulse(event.target.value)} />
+          </label>
+        </div>
+        <button className="inspect-button model-button" type="button" onClick={calculateIdealDeltaV} disabled={apiStatus !== "online" || modelState === "calculating"}>
+          {modelState === "calculating" ? <LoaderCircle size={16} className="spin" /> : <Calculator size={16} />}
+          {modelState === "calculating" ? "Calculating..." : "Calculate ideal delta-v"}
+        </button>
+        {modelError && <p className="inline-error">{modelError}</p>}
+        {apiStatus === "offline" && <p className="inline-warning">Connect the ORBITOPS API to run the model.</p>}
+        {modelResult && modelState === "success" && (
+          <div className="model-result">
+            <div className="result-heading"><CheckCircle2 size={17} /> Calculation complete · UNVALIDATED</div>
+            <div className="model-metrics">
+              <div><dt>Ideal delta-v</dt><dd>{modelResult.delta_v.value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>m/s</small></dd></div>
+              <div><dt>Initial mass</dt><dd>{modelResult.initial_mass.value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>kg</small></dd></div>
+              <div><dt>Mass ratio</dt><dd>{modelResult.mass_ratio.value.toLocaleString(undefined, { maximumFractionDigits: 4 })}</dd></div>
+            </div>
+            <div className="model-meta">Equation {modelResult.equation_id} · Model {modelResult.model_version}</div>
+            <div className="model-assumptions">
+              <strong>Assumptions</strong>
+              <ul>{modelResult.assumptions.map((item) => <li key={item}>{item}</li>)}</ul>
+              <strong>Limitations</strong>
+              <ul>{modelResult.limitations.map((item) => <li key={item}>{item}</li>)}</ul>
+            </div>
+            <a className="api-docs-link" href={modelResult.equation_reference} target="_blank" rel="noreferrer">NASA equation reference ↗</a>
+          </div>
+        )}
       </section>
 
       <section className="integrity-note">
