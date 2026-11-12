@@ -1,7 +1,6 @@
-from pydantic import ValidationError
-
 from app.engineering.provenance import EngineeringValue
 from app.engineering.units import Dimension, unit_dimension
+from pydantic import ValidationError
 
 
 def sample() -> dict:
