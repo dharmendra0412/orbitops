@@ -4,6 +4,14 @@ Dataset manifests are stored as immutable JSON snapshots in SQLite. The configur
 database path defaults to `data/orbitops.sqlite3` relative to the backend working
 directory and can be overridden with the `DATABASE_PATH` environment variable.
 
+## Manifest metadata
+
+Each manifest includes citation text and source/product/version identity. Assets are
+classified as source, transformed, or derived. Transformed and derived assets require
+a transformation description and transform version. Optional traceability fields
+include original units, variable units, coordinate frame, time system, temporal
+coverage, spatial resolution, quality/uncertainty notes, and limitations.
+
 ## Endpoints
 
 - POST /api/v1/datasets/manifests — register a manifest; returns 201.

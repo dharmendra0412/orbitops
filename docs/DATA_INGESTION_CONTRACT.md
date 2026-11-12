@@ -8,13 +8,19 @@ scientific interpretation, and source authenticity checks are not implemented.
 
 The API accepts a manifest for one immutable source data product or file. Required
 metadata includes provider, product identifier, release/version, source URL,
-retrieval timestamp, file name, media type, format, byte size, SHA-256 checksum,
-license/terms, and access classification.
+citation text, retrieval timestamp, file name, media type, format, byte size,
+SHA-256 checksum, license/terms, and access classification.
 
-Optional metadata includes coordinate reference frame, time system, temporal
-coverage, variable-to-unit declarations, and notes. A temporal interval must be
-strictly increasing; endpoints must both be timezone-aware or both timezone-naive.
-Different explicit UTC offsets are supported.
+The manifest records whether the asset is a source, transformed, or derived file.
+Transformed and derived assets require both a transformation description and a
+transform version. Original units, variable units, coordinate reference frame,
+time system, temporal coverage, spatial resolution, uncertainty/quality notes,
+limitations, and the property represented by the asset can be recorded where known.
+Unknown metadata is left absent rather than invented.
+
+Temporal coverage must be strictly increasing. Endpoints must both be timezone-aware
+or both timezone-naive; different explicit UTC offsets are supported. Spatial
+resolution value and unit must be supplied together.
 
 ## Upload integrity inspection
 

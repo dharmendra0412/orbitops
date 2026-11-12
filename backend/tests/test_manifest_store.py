@@ -15,6 +15,7 @@ def manifest_payload(manifest_id: str = "lro-test-product-v1") -> dict:
         "product_id": "synthetic-terrain-001",
         "release_or_version": "1.0",
         "source_url": "https://example.org/data/terrain.tif",
+        "citation_text": "Synthetic test fixture; not an external science product.",
         "retrieved_at": "2026-11-12T10:00:00Z",
         "file_name": "terrain.tif",
         "media_type": "image/tiff",
