@@ -57,7 +57,7 @@ The Vite development server proxies `/api` requests to `http://127.0.0.1:8000`. 
 - `POST /api/v1/datasets/checksum` — multipart upload; returns filename, media type, byte size, and SHA-256. Maximum 100 MiB; no persistence.
 - `POST /api/v1/datasets/manifests/validate` — validates dataset provenance and metadata contract.
 
-See [the data ingestion contract](docs/DATA_INGESTION_CONTRACT.md) for limits and non-goals.
+See [the data ingestion contract](docs/DATA_INGESTION_CONTRACT.md) for limits and non-goals, and [the candidate lunar data-source review](docs/DATA_SOURCE_REVIEW.md) for the source assessment.
 
 ## Engineering integrity rules
 
