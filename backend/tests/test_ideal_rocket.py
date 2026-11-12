@@ -3,7 +3,6 @@ from math import log
 import pytest
 from pydantic import ValidationError
 
-from app.engineering.provenance import EngineeringValue
 from app.propulsion.ideal_rocket import (
     STANDARD_GRAVITY,
     IdealRocketEquationRequest,

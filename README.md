@@ -18,6 +18,7 @@ The `engineering-grade-foundation` branch establishes the initial application fo
 ## Implemented foundation
 
 - Engineering-value contracts with unit dimension and provenance metadata.
+- Versioned ideal rocket-equation model with source-traceable standard gravity and explicit unvalidated limitations.
 - Dataset manifest validation and immutable metadata registry.
 - Bounded SHA-256 upload inspection (100 MiB maximum); uploaded bytes are not persisted.
 - Interactive frontend file-inspection panel and API connectivity indicator.
@@ -59,8 +60,9 @@ The Vite development server proxies `/api` requests to `http://127.0.0.1:8000`. 
 - `POST /api/v1/datasets/manifests` — registers an immutable manifest; duplicate IDs return HTTP 409.
 - `GET /api/v1/datasets/manifests` — paginated manifest listing.
 - `GET /api/v1/datasets/manifests/{manifest_id}` — retrieve a registered manifest.
+- `POST /api/v1/models/propulsion/ideal-delta-v` — calculate ideal delta-v from traceable mass and specific-impulse inputs; output remains unvalidated.
 
-See [the data ingestion contract](docs/DATA_INGESTION_CONTRACT.md), [the manifest registry contract](docs/MANIFEST_REGISTRY.md), and [the candidate lunar data-source review](docs/DATA_SOURCE_REVIEW.md).
+See [the data ingestion contract](docs/DATA_INGESTION_CONTRACT.md), [the manifest registry contract](docs/MANIFEST_REGISTRY.md), [the candidate lunar data-source review](docs/DATA_SOURCE_REVIEW.md), and [the ideal rocket-equation model note](docs/PROPULSION_IDEAL_ROCKET_EQUATION.md).
 
 ## Engineering integrity rules
 
