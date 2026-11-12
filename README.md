@@ -6,6 +6,8 @@ ORBITOPS is being developed as a scientific-data-driven engineering application.
 
 ## Repository status
 
+See [the current engineering status and remaining release gates](docs/ENGINEERING_STATUS.md). The older `docs/ORBITOPS_CANONICAL/` package is retained as historical project material and is not the source of truth for the engineering-grade branch.
+
 The `engineering-grade-foundation` branch establishes the initial application foundation. It is not a completed mission-analysis product. No lunar site, mission profile, component specification, or model has been silently approved by this scaffold.
 
 ## Current stack

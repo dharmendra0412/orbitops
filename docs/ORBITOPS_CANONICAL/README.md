@@ -1,3 +1,11 @@
+> **Historical documentation notice (2026-11-12):** This folder contains the earlier
+> educational mission-simulation concept and its original specifications. The
+> engineering-grade foundation branch has since pivoted to traceable scientific
+> data, versioned models, and verification evidence. Treat these files as historical
+> context only; use the root README and current engineering documents in `docs/`
+> for the implemented branch state. No legacy illustrative values are approved
+> as engineering specifications.
+>
 # ORBITOPS Documentation Pack
 
 **Date:** 2026-11-12  
