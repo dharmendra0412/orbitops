@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, File, UploadFile
 
 from app.engineering.provenance import EngineeringValue
@@ -22,7 +24,7 @@ def validate_dataset_manifest(payload: DatasetManifest) -> DatasetManifest:
 
 @ingestion_router.post("/checksum", response_model=UploadIntegrityResult)
 async def checksum_dataset_upload(
-    file: UploadFile = File(...),
+    file: Annotated[UploadFile, File()],
 ) -> UploadIntegrityResult:
     """Compute a bounded SHA-256 digest without retaining uploaded file bytes."""
     return await inspect_upload(file)
