@@ -81,3 +81,12 @@ h3 { font-size: 15px; margin: 20px 0 8px; }
 footer { margin-top: auto; min-height: 66px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 16px; color: #647991; font-size: 9px; }
 @media (max-width: 850px) { .workstream-grid { grid-template-columns: repeat(2, 1fr); } .hero { padding: 68px 0 56px; } .upload-result dl { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 560px) { .shell { width: min(100% - 32px, 1180px); } .environment-label { display: none; } .workstream-grid { grid-template-columns: 1fr; } .workstream-card { min-height: 185px; } .hero { padding: 54px 0 48px; } .hero-meta { gap: 12px; flex-direction: column; } .section-heading { align-items: start; gap: 12px; flex-direction: column; } .upload-controls { flex-direction: column; } .inspect-button { min-height: 44px; } .upload-result dl { grid-template-columns: 1fr 1fr; } .model-form, .model-metrics { grid-template-columns: 1fr; } footer { align-items: start; justify-content: center; flex-direction: column; padding: 18px 0; } }
+
+.run-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.run-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+.run-row-main { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.run-row-main strong { color: #e1edf8; font-size: 12px; }
+.run-row-main span, .run-row-main small { color: #8297b0; font: 10px "DM Mono", monospace; overflow-wrap: anywhere; }
+.run-row a { color: var(--cyan); font-size: 10px; white-space: nowrap; }
+.run-empty { color: var(--muted); font-size: 12px; }
+@media (max-width: 560px) { .run-row { align-items: start; flex-direction: column; } }

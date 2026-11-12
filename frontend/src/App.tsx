@@ -20,6 +20,14 @@ type PropulsionResult = {
 };
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
 
+type ModelRunSummary = {
+  run_id: string;
+  model_id: string;
+  model_version: string;
+  equation_id: string;
+  created_at: string;
+  result: Record<string, unknown>;
+};
 type PowerResult = {
   run_id?: string;
   created_at?: string;
@@ -78,6 +86,7 @@ export default function App() {
   const [powerState, setPowerState] = useState<ModelState>("idle");
   const [powerResult, setPowerResult] = useState<PowerResult | null>(null);
   const [powerError, setPowerError] = useState("");
+  const [recentRuns, setRecentRuns] = useState<ModelRunSummary[]>([]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -91,6 +100,21 @@ export default function App() {
       });
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    if (apiStatus === "online") void refreshRecentRuns();
+  }, [apiStatus]);
+
+  async function refreshRecentRuns() {
+    try {
+      const response = await fetch(apiBase + "/api/v1/models/runs?limit=10");
+      if (!response.ok) return;
+      const payload = await response.json();
+      setRecentRuns(payload as ModelRunSummary[]);
+    } catch {
+      // Run history is supplementary; calculation responses remain visible if listing fails.
+    }
+  }
 
   async function inspectSelectedFile() {
     if (!selectedFile) return;
@@ -154,6 +178,7 @@ export default function App() {
       }
       setModelResult(payload as PropulsionResult);
       setModelState("success");
+      void refreshRecentRuns();
     } catch (error) {
       setModelError(error instanceof Error ? error.message : "Unexpected model error");
       setModelState("error");
@@ -192,6 +217,7 @@ export default function App() {
       }
       setPowerResult(payload as PowerResult);
       setPowerState("success");
+      void refreshRecentRuns();
     } catch (error) {
       setPowerError(error instanceof Error ? error.message : "Unexpected power model error");
       setPowerState("error");
@@ -358,6 +384,30 @@ export default function App() {
               <strong>Limitations</strong>
               <ul>{powerResult.limitations.map((item) => <li key={item}>{item}</li>)}</ul>
             </div>
+          </div>
+        )}
+      </section>
+
+      <section className="model-panel run-history-panel">
+        <div className="ingestion-heading">
+          <span className="card-icon"><Database size={20} /></span>
+          <div><div className="eyebrow">TRACEABILITY REGISTRY</div><h2>Recent model runs</h2></div>
+        </div>
+        <p className="ingestion-copy">Successful model calculations are saved with their inputs, outputs, equation IDs, model versions, assumptions and limitations.</p>
+        {recentRuns.length === 0 ? (
+          <p className="run-empty">No model runs have been recorded yet.</p>
+        ) : (
+          <div className="run-list">
+            {recentRuns.map((run) => (
+              <div className="run-row" key={run.run_id}>
+                <div className="run-row-main">
+                  <strong>{run.model_id}</strong>
+                  <span>{run.equation_id} · v{run.model_version}</span>
+                  <small>{new Date(run.created_at).toLocaleString()}</small>
+                </div>
+                <a href={apiBase + "/api/v1/models/runs/" + run.run_id} target="_blank" rel="noreferrer">Open snapshot ↗</a>
+              </div>
+            ))}
           </div>
         )}
       </section>
