@@ -1,10 +1,10 @@
 """SQLite persistence for immutable dataset manifests."""
 import json
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
 
 from app.ingestion.manifests import DatasetManifest
 
@@ -64,7 +64,7 @@ class ManifestStore:
             sort_keys=True,
             separators=(",", ":"),
         )
-        created_at = datetime.now(timezone.utc).isoformat()
+        created_at = datetime.now(UTC).isoformat()
         try:
             with self._connection() as connection:
                 connection.execute(
