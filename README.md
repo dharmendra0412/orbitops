@@ -1,8 +1,12 @@
 # ORBITOPS
 
-**Engineering-grade lunar mission design and operations platform.**
+**Multi-planetary mission engineering and operations platform.**
 
 ORBITOPS is being developed as a scientific-data-driven engineering application. Engineering outputs must be traceable to versioned inputs, documented equations, explicit assumptions, and verification/validation evidence. The application must never present an unvalidated model as flight-qualified or operationally safe.
+
+## Product scope
+
+ORBITOPS targets mission-analysis workflows across all eight planets, with multiple mission archetypes. See [the multi-planetary mission scope](docs/PLANETARY_MISSION_SCOPE.md). Natural satellites, dwarf planets and small bodies are planned catalogue extensions.
 
 ## Repository status
 
@@ -19,6 +23,7 @@ The `engineering-grade-foundation` branch establishes the initial application fo
 
 ## Implemented foundation
 
+- Eight-planet destination taxonomy and seven mission archetypes via `GET /api/v1/missions/catalog`; feasibility remains unassessed.
 - Engineering-value contracts with unit dimension and provenance metadata.
 - Versioned ideal rocket-equation model with source-traceable standard gravity and explicit unvalidated limitations.
 - Constant-power energy balance model for a fixed interval, with traceable inputs and explicit battery/mission exclusions.

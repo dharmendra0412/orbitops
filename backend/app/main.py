@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.engineering.routes import ingestion_router
 from app.engineering.routes import router as engineering_router
+from app.missions.routes import router as mission_catalog_router
 from app.power.routes import router as power_router
 from app.propulsion.routes import router as propulsion_router
 from app.settings import settings
@@ -11,8 +12,8 @@ from app.storage.run_routes import router as model_runs_router
 app = FastAPI(
     title="ORBITOPS API",
     description=(
-        "Engineering-grade lunar mission analysis API. "
-        "All scientific outputs require traceable inputs and model credibility evidence."
+        "Multi-planetary mission engineering platform foundation. "
+        "Scientific outputs require traceable inputs and model credibility evidence."
     ),
     version="0.1.0",
 )
@@ -28,6 +29,7 @@ if settings.cors_origins:
 
 app.include_router(engineering_router, prefix="/api/v1")
 app.include_router(ingestion_router, prefix="/api/v1")
+app.include_router(mission_catalog_router, prefix="/api/v1")
 app.include_router(propulsion_router, prefix="/api/v1")
 app.include_router(power_router, prefix="/api/v1")
 app.include_router(model_runs_router, prefix="/api/v1")
@@ -47,4 +49,5 @@ def system_info() -> dict[str, str]:
         "product_stage": "engineering-foundation",
         "scientific_model_status": "unvalidated-models-available",
         "validation_policy": "evidence_required",
+        "destination_scope": "eight_planets",
     }
