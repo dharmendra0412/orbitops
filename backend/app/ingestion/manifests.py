@@ -58,8 +58,10 @@ class DatasetManifest(BaseModel):
         start = self.temporal_coverage_start
         end = self.temporal_coverage_end
         if start is not None and end is not None:
-            if start.tzinfo != end.tzinfo:
-                raise ValueError("Temporal coverage endpoints must use compatible time zones")
+            start_is_aware = start.utcoffset() is not None
+            end_is_aware = end.utcoffset() is not None
+            if start_is_aware != end_is_aware:
+                raise ValueError("Temporal coverage endpoints must both be timezone-aware or naive")
             if end <= start:
                 raise ValueError("temporal_coverage_end must be later than start")
         return self

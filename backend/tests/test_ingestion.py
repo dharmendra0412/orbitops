@@ -70,3 +70,23 @@ def test_manifest_rejects_unknown_fields() -> None:
 
     with pytest.raises(ValidationError):
         DatasetManifest.model_validate(payload)
+
+
+def test_manifest_accepts_different_explicit_utc_offsets() -> None:
+    payload = valid_manifest()
+    payload["temporal_coverage_start"] = "2026-11-12T10:00:00+00:00"
+    payload["temporal_coverage_end"] = "2026-11-12T12:00:00+01:00"
+
+    manifest = DatasetManifest.model_validate(payload)
+
+    assert manifest.temporal_coverage_start is not None
+    assert manifest.temporal_coverage_end is not None
+
+
+def test_manifest_rejects_mixed_naive_and_aware_coverage() -> None:
+    payload = valid_manifest()
+    payload["temporal_coverage_start"] = "2026-11-12T10:00:00"
+    payload["temporal_coverage_end"] = "2026-11-12T12:00:00Z"
+
+    with pytest.raises(ValidationError):
+        DatasetManifest.model_validate(payload)
