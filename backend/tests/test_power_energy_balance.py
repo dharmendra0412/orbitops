@@ -84,3 +84,17 @@ def test_simple_energy_balance_outputs_finite_margin_fraction() -> None:
 
     assert isclose(result.margin_fraction.value, 0.5)
     assert result.margin_fraction.unit == "1"
+
+
+
+def test_simple_energy_balance_api_marks_output_unvalidated() -> None:
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    client = TestClient(app)
+    response = client.post("/api/v1/models/power/simple-energy-balance", json=valid_request())
+
+    assert response.status_code == 200
+    assert response.json()["energy_margin"]["credibility"] == "unvalidated"
+    assert response.json()["limitations"]
