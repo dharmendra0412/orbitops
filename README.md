@@ -10,7 +10,7 @@ The `engineering-grade-foundation` branch establishes the initial application fo
 
 ## Current stack
 
-- Backend: Python 3.11+, FastAPI, Pydantic
+- Backend: Python 3.11+, FastAPI, Pydantic, SQLite
 - Frontend: React, TypeScript, Vite
 - Tests: pytest, FastAPI TestClient
 - CI: GitHub Actions
@@ -18,12 +18,12 @@ The `engineering-grade-foundation` branch establishes the initial application fo
 ## Implemented foundation
 
 - Engineering-value contracts with unit dimension and provenance metadata.
-- Dataset manifest validation with source/product version, file identity, checksum, license/access, coordinate frame, time system, and variable-unit metadata.
+- Dataset manifest validation and immutable metadata registry.
 - Bounded SHA-256 upload inspection (100 MiB maximum); uploaded bytes are not persisted.
 - Interactive frontend file-inspection panel and API connectivity indicator.
 - Automated backend lint/tests and frontend typecheck/build.
 
-The checksum endpoint computes a digest for uploaded bytes; it does not authenticate a source, download remote data, or establish scientific suitability.
+The checksum endpoint computes a digest for uploaded bytes; it does not authenticate a source, download remote data, or establish scientific suitability. The manifest registry stores metadata only, not dataset files.
 
 ## Local development
 
@@ -55,9 +55,12 @@ The Vite development server proxies `/api` requests to `http://127.0.0.1:8000`. 
 ## Dataset API
 
 - `POST /api/v1/datasets/checksum` — multipart upload; returns filename, media type, byte size, and SHA-256. Maximum 100 MiB; no persistence.
-- `POST /api/v1/datasets/manifests/validate` — validates dataset provenance and metadata contract.
+- `POST /api/v1/datasets/manifests/validate` — validates dataset metadata without saving.
+- `POST /api/v1/datasets/manifests` — registers an immutable manifest; duplicate IDs return HTTP 409.
+- `GET /api/v1/datasets/manifests` — paginated manifest listing.
+- `GET /api/v1/datasets/manifests/{manifest_id}` — retrieve a registered manifest.
 
-See [the data ingestion contract](docs/DATA_INGESTION_CONTRACT.md) for limits and non-goals, and [the candidate lunar data-source review](docs/DATA_SOURCE_REVIEW.md) for the source assessment.
+See [the data ingestion contract](docs/DATA_INGESTION_CONTRACT.md), [the manifest registry contract](docs/MANIFEST_REGISTRY.md), and [the candidate lunar data-source review](docs/DATA_SOURCE_REVIEW.md).
 
 ## Engineering integrity rules
 
