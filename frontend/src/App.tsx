@@ -7,6 +7,8 @@ type UploadResult = { file_name: string; media_type: string; file_size_bytes: nu
 type ModelState = "idle" | "calculating" | "success" | "error";
 type EngineeringOutput = { value: number; unit: string; credibility: string };
 type PropulsionResult = {
+  run_id?: string;
+  created_at?: string;
   delta_v: EngineeringOutput;
   initial_mass: EngineeringOutput;
   mass_ratio: EngineeringOutput;
@@ -19,6 +21,8 @@ type PropulsionResult = {
 const apiBase = import.meta.env.VITE_API_BASE_URL ?? "";
 
 type PowerResult = {
+  run_id?: string;
+  created_at?: string;
   supply_energy: EngineeringOutput;
   load_energy: EngineeringOutput;
   energy_margin: EngineeringOutput;
@@ -304,7 +308,7 @@ export default function App() {
               <div><dt>Initial mass</dt><dd>{modelResult.initial_mass.value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>kg</small></dd></div>
               <div><dt>Mass ratio</dt><dd>{modelResult.mass_ratio.value.toLocaleString(undefined, { maximumFractionDigits: 4 })}</dd></div>
             </div>
-            <div className="model-meta">Equation {modelResult.equation_id} · Model {modelResult.model_version}</div>
+            <div className="model-meta">Run {modelResult.run_id ?? "not recorded"} · Equation {modelResult.equation_id} · Model {modelResult.model_version}</div>
             <div className="model-assumptions">
               <strong>Assumptions</strong>
               <ul>{modelResult.assumptions.map((item) => <li key={item}>{item}</li>)}</ul>
@@ -347,7 +351,7 @@ export default function App() {
               <div><dt>Load energy</dt><dd>{powerResult.load_energy.value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>Wh</small></dd></div>
               <div><dt>Energy margin</dt><dd>{powerResult.energy_margin.value.toLocaleString(undefined, { maximumFractionDigits: 2 })} <small>Wh</small></dd></div>
             </div>
-            <div className="model-meta">Margin fraction {(powerResult.margin_fraction.value * 100).toFixed(2)}% · Equation {powerResult.equation_id} · Model {powerResult.model_version}</div>
+            <div className="model-meta">Run {powerResult.run_id ?? "not recorded"} · Margin fraction {(powerResult.margin_fraction.value * 100).toFixed(2)}% · Equation {powerResult.equation_id} · Model {powerResult.model_version}</div>
             <div className="model-assumptions">
               <strong>Assumptions</strong>
               <ul>{powerResult.assumptions.map((item) => <li key={item}>{item}</li>)}</ul>
