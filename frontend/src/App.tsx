@@ -32,7 +32,7 @@ type PowerResult = {
 const workstreams = [
   { icon: Database, title: "Scientific data", detail: "Dataset manifests, source traceability and SHA-256 upload inspection", state: "Manifest + checksum API live", ready: true },
   { icon: Atom, title: "Physics models", detail: "Versioned ideal propulsion equation with explicit assumptions and limitations", state: "Ideal rocket model · UNVALIDATED", ready: false },
-  { icon: Gauge, title: "Engineering analysis", detail: "Mass, trajectory, power, thermal and communications budgets", state: "Not yet released", ready: false },
+  { icon: Gauge, title: "Engineering analysis", detail: "Constant-power energy balance prototype; full subsystem budgets remain pending", state: "Power model · UNVALIDATED", ready: false },
   { icon: FileCheck2, title: "Verification & validation", detail: "Test vectors, independent references and uncertainty evidence", state: "Evidence required", ready: false },
 ];
 
