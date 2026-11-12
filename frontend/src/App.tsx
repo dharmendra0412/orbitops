@@ -5,6 +5,12 @@ type ApiStatus = "checking" | "online" | "offline";
 type UploadState = "idle" | "uploading" | "success" | "error";
 type UploadResult = { file_name: string; media_type: string; file_size_bytes: number; checksum_sha256: string; storage_status: string };
 type ModelState = "idle" | "calculating" | "success" | "error";
+type MissionCatalog = {
+  scope: string;
+  destinations: { planet_id: string; display_name: string; planetary_class: string; feasibility_status: string }[];
+  mission_archetypes: { archetype: string; display_name: string; description: string }[];
+  exclusions: string[];
+};
 type EngineeringOutput = { value: number; unit: string; credibility: string };
 type PropulsionResult = {
   run_id?: string;
@@ -87,6 +93,9 @@ export default function App() {
   const [powerResult, setPowerResult] = useState<PowerResult | null>(null);
   const [powerError, setPowerError] = useState("");
   const [recentRuns, setRecentRuns] = useState<ModelRunSummary[]>([]);
+  const [missionCatalog, setMissionCatalog] = useState<MissionCatalog | null>(null);
+  const [selectedPlanet, setSelectedPlanet] = useState("mars");
+  const [selectedArchetype, setSelectedArchetype] = useState("orbiter");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -102,7 +111,20 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (apiStatus === "online") void refreshRecentRuns();
+    if (apiStatus === "online") {
+      void refreshRecentRuns();
+      fetch(apiBase + "/api/v1/missions/catalog")
+        .then((response) => {
+          if (!response.ok) throw new Error("Mission catalogue unavailable");
+          return response.json();
+        })
+        .then((payload: MissionCatalog) => {
+          setMissionCatalog(payload);
+          if (payload.destinations.length > 0) setSelectedPlanet(payload.destinations[3]?.planet_id ?? payload.destinations[0].planet_id);
+          if (payload.mission_archetypes.length > 0) setSelectedArchetype(payload.mission_archetypes[1]?.archetype ?? payload.mission_archetypes[0].archetype);
+        })
+        .catch(() => setMissionCatalog(null));
+    }
   }, [apiStatus]);
 
   async function refreshRecentRuns() {
@@ -233,7 +255,7 @@ export default function App() {
           <span>ORBIT<span className="brand-accent">OPS</span></span>
         </a>
         <div className="topbar-right">
-          <span className="environment-label">ENGINEERING WORKSPACE</span>
+          <span className="environment-label">MULTI-PLANETARY WORKSPACE</span>
           <span className={"api-indicator " + apiStatus}><span className="status-dot" />API {apiStatus}</span>
         </div>
       </header>
@@ -241,7 +263,7 @@ export default function App() {
       <section className="hero">
         <div className="eyebrow"><Activity size={14} /> MISSION ENGINEERING PLATFORM</div>
         <h1>Design with evidence.<br /><span>Operate with confidence.</span></h1>
-        <p className="hero-copy">A traceable engineering workspace for lunar mission analysis. Every result will be tied to its data, equations, assumptions and validation evidence.</p>
+        <p className="hero-copy">A traceable engineering workspace for missions across all eight planets. Every result will be tied to its data, equations, assumptions and validation evidence.</p>
         <div className="hero-meta">
           <span><ShieldCheck size={15} /> Evidence-first engineering</span>
           <span><Layers3 size={15} /> Versioned models and datasets</span>
@@ -261,6 +283,40 @@ export default function App() {
             <div className={"card-state " + (ready ? "ready" : "")}><span />{state}</div>
           </article>
         ))}
+      </section>
+
+      <section className="model-panel mission-catalog-panel">
+        <div className="ingestion-heading">
+          <span className="card-icon"><Satellite size={20} /></span>
+          <div><div className="eyebrow">MISSION SCOPE · EIGHT PLANETS</div><h2>Planetary mission explorer</h2></div>
+        </div>
+        <p className="ingestion-copy">Choose a destination and mission archetype to define a future analysis scenario. This catalogue does not yet calculate destination-specific feasibility.</p>
+        {missionCatalog ? (
+          <>
+            <div className="model-form">
+              <label className="model-field">Destination
+                <select value={selectedPlanet} onChange={(event) => setSelectedPlanet(event.target.value)}>
+                  {missionCatalog.destinations.map((planet) => <option key={planet.planet_id} value={planet.planet_id}>{planet.display_name} · {planet.planetary_class.replace("_", " ")}</option>)}
+                </select>
+              </label>
+              <label className="model-field">Mission archetype
+                <select value={selectedArchetype} onChange={(event) => setSelectedArchetype(event.target.value)}>
+                  {missionCatalog.mission_archetypes.map((item) => <option key={item.archetype} value={item.archetype}>{item.display_name}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="catalog-selection">
+              <strong>{missionCatalog.destinations.find((planet) => planet.planet_id === selectedPlanet)?.display_name ?? "Selected planet"} · {missionCatalog.mission_archetypes.find((item) => item.archetype === selectedArchetype)?.display_name ?? "Mission"}</strong>
+              <span>{missionCatalog.mission_archetypes.find((item) => item.archetype === selectedArchetype)?.description}</span>
+              <small>Feasibility: NOT ASSESSED · Mission profile has not yet been created.</small>
+            </div>
+            <div className="planet-chip-list">
+              {missionCatalog.destinations.map((planet) => <button type="button" key={planet.planet_id} className={"planet-chip " + (planet.planet_id === selectedPlanet ? "selected" : "")} onClick={() => setSelectedPlanet(planet.planet_id)}>{planet.display_name}</button>)}
+            </div>
+          </>
+        ) : (
+          <p className="run-empty">Connect the API to load the planetary mission catalogue.</p>
+        )}
       </section>
 
       <section className="ingestion-panel">
@@ -421,7 +477,7 @@ export default function App() {
       </section>
 
       <footer>
-        <span>ORBITOPS · ENGINEERING-GRADE LUNAR MISSION ANALYSIS</span>
+        <span>ORBITOPS · MULTI-PLANETARY MISSION ENGINEERING</span>
         <span>EARLY FOUNDATION BUILD · NOT FOR FLIGHT OR OPERATIONAL USE</span>
       </footer>
     </main>

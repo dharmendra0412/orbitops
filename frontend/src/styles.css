@@ -90,3 +90,13 @@ footer { margin-top: auto; min-height: 66px; border-top: 1px solid var(--line); 
 .run-row a { color: var(--cyan); font-size: 10px; white-space: nowrap; }
 .run-empty { color: var(--muted); font-size: 12px; }
 @media (max-width: 560px) { .run-row { align-items: start; flex-direction: column; } }
+
+.mission-catalog-panel { margin-bottom: 22px; }
+.model-field select { width: 100%; border: 1px solid var(--line); border-radius: 7px; background: #091522; color: #e5eef8; padding: 12px; font: inherit; }
+.catalog-selection { display: flex; flex-direction: column; gap: 7px; margin-top: 16px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: rgba(15, 34, 52, .55); }
+.catalog-selection strong { color: #e4f0fc; font-size: 13px; }
+.catalog-selection span { color: #9aadc1; font-size: 12px; line-height: 1.5; }
+.catalog-selection small { color: #d6b878; font: 10px "DM Mono", monospace; }
+.planet-chip-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.planet-chip { border: 1px solid var(--line); border-radius: 20px; padding: 7px 12px; background: transparent; color: #9db0c4; font-size: 11px; cursor: pointer; }
+.planet-chip.selected { border-color: var(--cyan); color: var(--cyan); background: rgba(58, 211, 225, .08); }
