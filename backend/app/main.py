@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.engineering.routes import ingestion_router
 from app.engineering.routes import router as engineering_router
+from app.power.routes import router as power_router
 from app.propulsion.routes import router as propulsion_router
 from app.settings import settings
 
@@ -27,6 +28,7 @@ if settings.cors_origins:
 app.include_router(engineering_router, prefix="/api/v1")
 app.include_router(ingestion_router, prefix="/api/v1")
 app.include_router(propulsion_router, prefix="/api/v1")
+app.include_router(power_router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health", tags=["operations"])
