@@ -1,8 +1,8 @@
 # Scientific Data Ingestion Contract
 
-**Status:** Manifest validation and bounded upload hashing are implemented. Dataset
-persistence, format decoding, scientific interpretation, and source authenticity
-checks are not implemented.
+**Status:** Dataset manifest validation, SQLite metadata persistence, and bounded
+upload hashing are implemented. Dataset-byte persistence, format decoding,
+scientific interpretation, and source authenticity checks are not implemented.
 
 ## Dataset manifest
 
@@ -29,6 +29,17 @@ The returned digest and file metadata can be copied into a dataset manifest.
 This is a checksum of the uploaded bytes, not proof that the source is authentic
 or that the dataset is scientifically suitable.
 
+## Manifest registry
+
+- POST /api/v1/datasets/manifests/validate validates metadata only.
+- POST /api/v1/datasets/manifests stores an immutable manifest in SQLite.
+- GET /api/v1/datasets/manifests lists records with limit and offset.
+- GET /api/v1/datasets/manifests/{manifest_id} retrieves one record.
+
+Manifest identifiers are unique. Duplicate IDs return HTTP 409; records are not
+silently overwritten. SQLite stores manifest JSON and indexing metadata only, not
+dataset file bytes. See MANIFEST_REGISTRY.md for schema and persistence details.
+
 ## Integrity and limits
 
 - SHA-256 in a manifest is validated as a 64-character hexadecimal string.
@@ -39,10 +50,5 @@ or that the dataset is scientifically suitable.
 - Unknown fields are rejected to prevent silent acceptance of unsupported claims.
 - Synthetic test fixtures are explicitly labelled and must not be represented as
   NASA source data.
-
-## Manifest API
-
-POST /api/v1/datasets/manifests/validate
-
-This endpoint validates the manifest contract and returns normalized metadata.
-It does not ingest or persist file bytes or certify scientific suitability.
+- Persistence provides repeatable metadata retrieval, not scientific validation,
+  product authenticity, or data suitability.
