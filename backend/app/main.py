@@ -1,7 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.engineering.routes import router as engineering_router
 from app.settings import settings
 
 app = FastAPI(
@@ -21,8 +20,6 @@ if settings.cors_origins:
         allow_methods=["GET", "POST"],
         allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
     )
-
-app.include_router(engineering_router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health", tags=["operations"])

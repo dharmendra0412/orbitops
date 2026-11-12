@@ -10,6 +10,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
+from app.engineering.units import Dimension, unit_dimension
+
 
 class ProvenanceClass(StrEnum):
     SOURCED = "sourced"
@@ -35,7 +37,7 @@ class SourceReference(BaseModel):
 
 
 class EngineeringValue(BaseModel):
-    """A numerical value with SI-oriented unit and explicit provenance."""
+    """A numerical value with explicit dimensional and provenance metadata."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -43,6 +45,7 @@ class EngineeringValue(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=200)]
     value: float
     unit: Annotated[str, Field(min_length=1, max_length=40)]
+    dimension: Dimension
     provenance: ProvenanceClass
     source: SourceReference | None = None
     equation_id: Annotated[str, Field(min_length=1, max_length=120)] | None = None
@@ -60,7 +63,16 @@ class EngineeringValue(BaseModel):
         return value
 
     @model_validator(mode="after")
-    def provenance_metadata_must_match(self) -> "EngineeringValue":
+    def metadata_must_be_consistent(self) -> "EngineeringValue":
+        expected_dimension = unit_dimension(self.unit)
+        if expected_dimension is None:
+            raise ValueError(f"Unsupported unit: {self.unit}")
+        if expected_dimension != self.dimension:
+            raise ValueError(
+                f"Unit {self.unit} has dimension {expected_dimension.value}, "
+                f"not {self.dimension.value}"
+            )
+
         if self.provenance == ProvenanceClass.SOURCED and self.source is None:
             raise ValueError("Sourced values require a source reference")
         if self.provenance == ProvenanceClass.CALCULATED:
@@ -68,7 +80,6 @@ class EngineeringValue(BaseModel):
                 raise ValueError("Calculated values require equation_id and model_version")
         if self.provenance == ProvenanceClass.ILLUSTRATIVE and not self.assumption_note:
             raise ValueError("Illustrative values require an explicit assumption_note")
-        if self.credibility == CredibilityStatus.VALIDATED:
-            if not self.limitations:
-                raise ValueError("Validated claims must document applicability limitations")
+        if self.credibility == CredibilityStatus.VALIDATED and not self.limitations:
+            raise ValueError("Validated claims must document applicability limitations")
         return self
