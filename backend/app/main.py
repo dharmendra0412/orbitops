@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.engineering.routes import ingestion_router, router as engineering_router
+from app.engineering.routes import ingestion_router
+from app.engineering.routes import router as engineering_router
 from app.settings import settings
 
 app = FastAPI(
