@@ -75,9 +75,10 @@ class EngineeringValue(BaseModel):
 
         if self.provenance == ProvenanceClass.SOURCED and self.source is None:
             raise ValueError("Sourced values require a source reference")
-        if self.provenance == ProvenanceClass.CALCULATED:
-            if not self.equation_id or not self.model_version:
-                raise ValueError("Calculated values require equation_id and model_version")
+        if self.provenance == ProvenanceClass.CALCULATED and (
+            not self.equation_id or not self.model_version
+        ):
+            raise ValueError("Calculated values require equation_id and model_version")
         if self.provenance == ProvenanceClass.ILLUSTRATIVE and not self.assumption_note:
             raise ValueError("Illustrative values require an explicit assumption_note")
         if self.credibility == CredibilityStatus.VALIDATED and not self.limitations:
