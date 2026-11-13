@@ -392,7 +392,7 @@ def test_utc_to_et_conversion_requires_inspected_lsk_and_records_provenance(tmp_
         assert client.post("/api/v1/ephemeris/spice/kernels", json=registration).status_code == 201
         not_ready = client.post(
             "/api/v1/ephemeris/spice/kernels/reference-lsk/time-conversions",
-            json={"utc_time": "2000-01-01T11:58:55.816 UTC"},
+            json={"utc_time": "2000 JAN 01 11:58:55.816 UTC"},
         )
         assert not_ready.status_code == 409
 
@@ -406,7 +406,7 @@ def test_utc_to_et_conversion_requires_inspected_lsk_and_records_provenance(tmp_
 
         converted = client.post(
             "/api/v1/ephemeris/spice/kernels/reference-lsk/time-conversions",
-            json={"utc_time": "2000-01-01T11:58:55.816 UTC"},
+            json={"utc_time": "2000 JAN 01 11:58:55.816 UTC"},
         )
         assert converted.status_code == 201, converted.text
         body = converted.json()
@@ -470,7 +470,7 @@ def test_utc_to_et_rejects_lsk_artifact_tampering_after_inspection(tmp_path, mon
 
         converted = client.post(
             "/api/v1/ephemeris/spice/kernels/tampered-lsk/time-conversions",
-            json={"utc_time": "2000-01-01T11:58:55.816 UTC"},
+            json={"utc_time": "2000 JAN 01 11:58:55.816 UTC"},
         )
         assert converted.status_code == 422
         assert "no longer matches" in converted.json()["detail"]
