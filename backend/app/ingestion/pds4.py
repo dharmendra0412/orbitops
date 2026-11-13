@@ -125,9 +125,14 @@ def inspect_pds4_label(xml_bytes: bytes, file_name: str) -> PDS4LabelInspection:
             arrays.append(info)
         file_areas.append({"file": file_info, "arrays": arrays})
 
-    product_class = next(
-        (local_name(n.tag) for n in root if local_name(n.tag).startswith("Product_")),
-        None,
+    root_name = local_name(root.tag)
+    product_class = (
+        root_name
+        if root_name.startswith("Product_")
+        else next(
+            (local_name(n.tag) for n in root.iter() if local_name(n.tag).startswith("Product_")),
+            None,
+        )
     )
     return PDS4LabelInspection(
         file_name=file_name,
