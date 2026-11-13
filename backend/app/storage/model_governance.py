@@ -1,5 +1,5 @@
 """Append-only model verification/validation evidence and derived credibility state."""
-import sqlite3
+import sqlite3  # noqa: I001
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
