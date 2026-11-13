@@ -146,6 +146,11 @@ class MissionEvidenceStore:
         with self._connection() as connection:
             if not self._project_exists(connection, project_id):
                 return None
+            manifest_table = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'dataset_manifests'"
+            ).fetchone()
+            if manifest_table is None:
+                return []
             rows = connection.execute(
                 """
                 SELECT l.*, m.payload_json
@@ -220,6 +225,11 @@ class MissionEvidenceStore:
         with self._connection() as connection:
             if not self._project_exists(connection, project_id):
                 return None
+            assessment_table = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'model_assessments'"
+            ).fetchone()
+            if assessment_table is None:
+                return []
             rows = connection.execute(
                 """
                 SELECT l.*, a.*
