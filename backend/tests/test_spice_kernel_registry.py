@@ -1037,7 +1037,7 @@ def test_artifact_upload_reports_unsupported_secure_storage_runtime(tmp_path, mo
             files={"upload": ("kernel.bin", b"not-written", "application/octet-stream")},
         )
         assert response.status_code == 501
-        assert "requires a POSIX runtime" in response.json()["detail"]
+        assert "require a POSIX runtime" in response.json()["detail"]
         assert not (tmp_path / "artifacts").exists()
         assert store.get("missing") is None
     finally:
