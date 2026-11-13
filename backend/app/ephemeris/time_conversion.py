@@ -12,6 +12,7 @@ from app.ephemeris.kernels import SpiceTimeConversionRecord
 
 
 MAX_CONVERSION_SECONDS = 12
+MAX_LSK_CONVERSION_BYTES = 10 * 1024 * 1024
 HASH_CHUNK_BYTES = 1024 * 1024
 
 
@@ -43,6 +44,10 @@ def _run_time_worker(
 
     if not resolved_path.is_relative_to(root) or not resolved_path.is_file():
         raise SpiceTimeConversionError("LSK artifact path is outside the configured storage root")
+    if resolved_path.stat().st_size > MAX_LSK_CONVERSION_BYTES:
+        raise SpiceTimeConversionError(
+            f"LSK artifact exceeds the {MAX_LSK_CONVERSION_BYTES} byte conversion limit"
+        )
 
     digest = hashlib.sha256()
     with resolved_path.open("rb") as artifact_file:
@@ -56,7 +61,7 @@ def _run_time_worker(
     backend_root = Path(__file__).resolve().parents[2]
     try:
         completed = subprocess.run(
-            [sys.executable, "-I", str(worker_path), str(resolved_path), mode, value, str(precision)],
+            [sys.executable, "-I", str(worker_path), str(resolved_path), mode, value, str(precision), expected_sha256],
             cwd=backend_root,
             capture_output=True,
             text=True,
