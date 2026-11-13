@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.engineering.routes import ingestion_router
 from app.engineering.routes import router as engineering_router
 from app.missions.model_governance_routes import router as model_governance_router
+from app.missions.project_evidence_routes import router as project_evidence_router
 from app.missions.project_routes import router as mission_projects_router
 from app.missions.review_package_routes import router as review_package_router
 from app.missions.revision_impact_routes import router as revision_impact_router
@@ -38,6 +39,7 @@ app.include_router(engineering_router, prefix="/api/v1")
 app.include_router(ingestion_router, prefix="/api/v1")
 app.include_router(mission_catalog_router, prefix="/api/v1")
 app.include_router(mission_projects_router, prefix="/api/v1")
+app.include_router(project_evidence_router, prefix="/api/v1")
 app.include_router(mission_verification_router, prefix="/api/v1")
 app.include_router(spacecraft_router, prefix="/api/v1")
 app.include_router(traceability_router, prefix="/api/v1")
