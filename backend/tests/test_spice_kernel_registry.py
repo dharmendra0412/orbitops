@@ -953,3 +953,34 @@ def test_spice_registry_enforces_foreign_keys_on_every_connection(tmp_path):
             store._connection() as connection,
         ):
             connection.execute(statement, parameters)
+
+
+
+def test_spice_registry_startup_detects_preexisting_foreign_key_violations(tmp_path):
+    database_path = tmp_path / "spice-kernels.sqlite3"
+    with sqlite3.connect(database_path) as connection:
+        connection.execute(
+            """CREATE TABLE spice_kernel_registrations (
+                kernel_id TEXT PRIMARY KEY,
+                payload_json TEXT NOT NULL,
+                registered_at TEXT NOT NULL
+            )"""
+        )
+        connection.execute(
+            """CREATE TABLE spice_kernel_artifacts (
+                kernel_id TEXT PRIMARY KEY,
+                payload_json TEXT NOT NULL,
+                acquired_at TEXT NOT NULL,
+                FOREIGN KEY(kernel_id) REFERENCES spice_kernel_registrations(kernel_id)
+            )"""
+        )
+        # Simulate rows written by an older application connection where
+        # SQLite's per-connection foreign-key enforcement was left disabled.
+        connection.execute(
+            """INSERT INTO spice_kernel_artifacts
+               (kernel_id, payload_json, acquired_at) VALUES (?, ?, ?)""",
+            ("orphan-artifact", "{}", "2026-01-01T00:00:00+00:00"),
+        )
+
+    with pytest.raises(RuntimeError, match="existing foreign-key violations"):
+        SpiceKernelStore(database_path)

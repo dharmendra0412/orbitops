@@ -72,6 +72,14 @@ class SpiceKernelStore:
                     FOREIGN KEY(kernel_id) REFERENCES spice_kernel_inspections(kernel_id)
                 )
             """)
+            violations = connection.execute("PRAGMA foreign_key_check").fetchall()
+            if violations:
+                tables = ", ".join(sorted({row["table"] for row in violations}))
+                raise RuntimeError(
+                    "SPICE registry contains existing foreign-key violations "
+                    f"in: {tables}. Back up the database and repair these records "
+                    "before starting ORBITOPS."
+                )
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
