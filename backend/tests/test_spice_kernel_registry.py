@@ -359,3 +359,21 @@ def test_inspection_rejects_artifact_changed_after_acquisition(tmp_path, monkeyp
         assert "no longer matches" in inspected.json()["detail"]
     finally:
         clear_overrides()
+
+def test_naif_reference_lsk_converts_j2000_epoch_and_utc_round_trip():
+    """Regression against the frozen NAIF naif0012 LSK data snapshot."""
+    from pathlib import Path
+
+    reference_lsk = Path(__file__).parent / "fixtures" / "naif0012_reference.tls"
+    spice.kclear()
+    try:
+        spice.furnsh(str(reference_lsk))
+        j2000_tdb_et = spice.str2et("2000 JAN 01 12:00:00 TDB")
+        assert abs(j2000_tdb_et) < 1e-9
+
+        utc_at_j2000 = spice.et2utc(0.0, "ISOC", 3)
+        assert utc_at_j2000 == "2000-01-01T11:58:55.816"
+        utc_round_trip_et = spice.str2et("2000 JAN 01 11:58:55.816 UTC")
+        assert abs(utc_round_trip_et) < 1e-6
+    finally:
+        spice.kclear()
