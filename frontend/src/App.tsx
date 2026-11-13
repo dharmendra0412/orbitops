@@ -128,7 +128,7 @@ export default function App() {
   const [componentSubsystem, setComponentSubsystem] = useState("structure");
   const [componentMass, setComponentMass] = useState("");
   const [componentDraw, setComponentDraw] = useState("");
-  const [componentGeneration, setComponentGeneration] = useState("");
+  const [componentGeneration, setComponentGeneration] = useState("");\n  const [componentLoadDuty, setComponentLoadDuty] = useState("1");\n  const [componentGenerationDuty, setComponentGenerationDuty] = useState("1");
   const [massMargin, setMassMargin] = useState("20");
   const [spacecraftState, setSpacecraftState] = useState<ModelState>("idle");
   const [spacecraftError, setSpacecraftError] = useState("");
@@ -225,10 +225,10 @@ export default function App() {
   function addSpacecraftComponent() {
     const mass = Number(componentMass);
     const draw = componentDraw.trim() ? Number(componentDraw) : null;
-    const generation = componentGeneration.trim() ? Number(componentGeneration) : null;
+    const generation = componentGeneration.trim() ? Number(componentGeneration) : null;\n    const loadDuty = Number(componentLoadDuty);\n    const generationDuty = Number(componentGenerationDuty);
     if (!componentId.trim() || !componentName.trim() || !Number.isFinite(mass) || mass < 0 ||
         (draw !== null && (!Number.isFinite(draw) || draw < 0)) ||
-        (generation !== null && (!Number.isFinite(generation) || generation < 0))) {
+        (generation !== null && (!Number.isFinite(generation) || generation < 0)) ||\n        !Number.isFinite(loadDuty) || loadDuty < 0 || loadDuty > 1 ||\n        !Number.isFinite(generationDuty) || generationDuty < 0 || generationDuty > 1) {
       setSpacecraftError("Enter a component ID/name, non-negative mass, and valid optional power values."); return;
     }
     if (spacecraftComponents.some((item) => item.component_id === componentId.trim())) {
@@ -245,7 +245,7 @@ export default function App() {
       mass: quantity("mass-" + componentId.trim(), componentName.trim() + " mass", mass, "kg", "mass"),
       power_draw: draw === null ? null : quantity("draw-" + componentId.trim(), componentName.trim() + " power draw", draw, "W", "power"),
       power_generation: generation === null ? null : quantity("generation-" + componentId.trim(), componentName.trim() + " power generation", generation, "W", "power"),
-      load_duty_cycle: 1, generation_duty_cycle: 1,
+      load_duty_cycle: loadDuty, generation_duty_cycle: generationDuty,
     }]);
     setComponentId(""); setComponentName(""); setComponentMass(""); setComponentDraw(""); setComponentGeneration(""); setSpacecraftError("");
   }
@@ -614,7 +614,11 @@ export default function App() {
           <label className="model-field">Power draw <span>W · optional</span><input type="number" min="0" step="any" value={componentDraw} onChange={(e) => setComponentDraw(e.target.value)} /></label>
           <label className="model-field">Power generation <span>W · optional</span><input type="number" min="0" step="any" value={componentGeneration} onChange={(e) => setComponentGeneration(e.target.value)} /></label>
         </div>
-        <label className="model-field">Mass margin <span>%</span><input type="number" min="0" max="100" step="0.1" value={massMargin} onChange={(e) => setMassMargin(e.target.value)} /></label>
+        <div className="model-form">
+          <label className="model-field">Load duty cycle <span>0–1</span><input type="number" min="0" max="1" step="0.01" value={componentLoadDuty} onChange={(e) => setComponentLoadDuty(e.target.value)} /></label>
+          <label className="model-field">Generation duty cycle <span>0–1</span><input type="number" min="0" max="1" step="0.01" value={componentGenerationDuty} onChange={(e) => setComponentGenerationDuty(e.target.value)} /></label>
+          <label className="model-field">Mass margin <span>%</span><input type="number" min="0" max="100" step="0.1" value={massMargin} onChange={(e) => setMassMargin(e.target.value)} /></label>
+        </div>
         <div className="upload-controls"><button className="planet-chip" type="button" onClick={addSpacecraftComponent}>Add component</button><button className="inspect-button" type="button" onClick={saveSpacecraftConfiguration} disabled={spacecraftState === "calculating"}>{spacecraftState === "calculating" ? "Saving..." : spacecraftRecord ? "Save new revision" : "Save configuration"}</button></div>
         {spacecraftComponents.map((item) => <div className="run-row" key={item.component_id}><div className="run-row-main"><strong>{item.component_id} · {item.name}</strong><span>{item.subsystem.replace(/_/g, " ")} · {item.mass.value} kg</span><small>Draw {item.power_draw?.value ?? "—"} W · Generation {item.power_generation?.value ?? "—"} W</small></div></div>)}
         {spacecraftError && <p className="inline-error">{spacecraftError}</p>}
