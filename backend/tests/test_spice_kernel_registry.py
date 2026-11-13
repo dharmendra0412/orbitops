@@ -428,6 +428,44 @@ def test_utc_to_et_conversion_requires_inspected_lsk_and_records_provenance(tmp_
         clear_overrides()
 
 
+
+def test_et_to_utc_conversion_records_lsk_provenance_and_precision(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", tmp_path / "artifacts")
+    fixture = Path(__file__).parent / "fixtures" / "naif0012_reference.tls"
+    content = fixture.read_bytes()
+    registration = payload("reference-lsk-et-to-utc")
+    registration["file_name"] = "naif0012_reference.tls"
+    registration["sha256"] = hashlib.sha256(content).hexdigest()
+    try:
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=registration).status_code == 201
+        uploaded = client.post(
+            "/api/v1/ephemeris/spice/kernels/reference-lsk-et-to-utc/artifact",
+            files={"upload": ("naif0012_reference.tls", content, "text/plain")},
+        )
+        assert uploaded.status_code == 201
+        assert client.post(
+            "/api/v1/ephemeris/spice/kernels/reference-lsk-et-to-utc/inspection"
+        ).status_code == 201
+
+        converted = client.post(
+            "/api/v1/ephemeris/spice/kernels/reference-lsk-et-to-utc/time-conversions/et-to-utc",
+            json={"et_seconds": 0.0, "precision": 6},
+        )
+        assert converted.status_code == 201, converted.text
+        body = converted.json()
+        assert body["conversion_direction"] == "et_to_utc"
+        assert body["input_et_seconds"] == 0.0
+        assert body["input_utc"] is None
+        assert body["et_seconds"] == 0.0
+        assert body["normalized_utc"].startswith("2000-01-01T11:58:55.816")
+        assert body["artifact_sha256"] == registration["sha256"]
+        assert body["toolkit_version"] == "8.4.0"
+    finally:
+        clear_overrides()
+
 def test_utc_to_et_rejects_missing_utc_suffix_and_non_lsk_registration(tmp_path):
     configure_store(tmp_path)
     non_lsk = payload("not-an-lsk")
