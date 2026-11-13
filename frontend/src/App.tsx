@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Activity, Atom, CheckCircle2, Copy, Database, FileCheck2, Gauge, Layers3, LoaderCircle, Orbit, ShieldCheck, Satellite, UploadCloud, Calculator } from "lucide-react";
+import { Activity, Atom, BookOpen, CheckCircle2, Copy, Database, ExternalLink, FileCheck2, Gauge, Layers3, LoaderCircle, Orbit, ShieldCheck, Satellite, UploadCloud, Calculator } from "lucide-react";
 
 type ApiStatus = "checking" | "online" | "offline";
 type UploadState = "idle" | "uploading" | "success" | "error";
