@@ -217,8 +217,15 @@ def test_removed_component_is_flagged_as_stale(tmp_path) -> None:
         clear_overrides()
 
 
-def test_matrix_for_unknown_project_returns_404() -> None:
-    response = client.get(
-        "/api/v1/missions/projects/00000000-0000-0000-0000-000000000000/traceability/matrix"
-    )
-    assert response.status_code == 404
+def test_matrix_for_unknown_project_returns_404(tmp_path) -> None:
+    database = tmp_path / "unknown-project.sqlite3"
+    MissionProjectStore(database)
+    store = RequirementTraceabilityStore(database)
+    app.dependency_overrides[get_requirement_traceability_store] = lambda: store
+    try:
+        response = client.get(
+            "/api/v1/missions/projects/00000000-0000-0000-0000-000000000000/traceability/matrix"
+        )
+        assert response.status_code == 404
+    finally:
+        clear_overrides()
