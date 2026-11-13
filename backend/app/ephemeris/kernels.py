@@ -7,6 +7,7 @@ import re
 from datetime import datetime
 from enum import StrEnum
 from typing import Annotated
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
@@ -134,7 +135,7 @@ class SpiceTimeConversionRecord(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    conversion_id: str = Field(default_factory=lambda: __import__("uuid").uuid4().hex)
+    conversion_id: str = Field(default_factory=lambda: uuid4().hex)
     kernel_id: str
     artifact_sha256: str
     toolkit_name: str = "SpiceyPy"
@@ -150,3 +151,18 @@ class SpiceTimeConversionRecord(BaseModel):
         "This is a time-system conversion, not ephemeris evaluation, frame transformation, or scientific validation.",
         "The subprocess has a timeout and best-effort POSIX resource limits, not a complete OS sandbox.",
     ])
+
+class SpiceUtcToEtRequest(BaseModel):
+    """UTC instant to convert using one explicitly selected LSK."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    utc_time: Annotated[str, Field(min_length=5, max_length=128)]
+
+    @field_validator("utc_time")
+    @classmethod
+    def utc_input_must_declare_utc(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized.upper().endswith(" UTC"):
+            raise ValueError("utc_time must end with an explicit UTC time-system suffix")
+        return normalized
