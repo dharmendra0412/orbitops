@@ -1,10 +1,6 @@
 """ASGI request-body limits to bound multipart parsing and disk spooling."""
-from collections.abc import Awaitable, Callable
-from typing import Any
-
 from starlette.responses import JSONResponse
-
-ASGIApp = Callable[[dict[str, Any], Callable[..., Awaitable[dict[str, Any]]], Callable[..., Awaitable[None]]], Awaitable[None]]
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 MIB = 1024 * 1024
 DEFAULT_REQUEST_BODY_BYTES = 10 * MIB
@@ -42,17 +38,15 @@ class RequestBodyLimitMiddleware:
             return self.pds4_limit_bytes
         parts = path.split("/")
         if (
-            len(parts) == 7
-            and parts[:5] == ["", "api", "v1", "ephemeris", "spice"]
-            and parts[5] == "kernels"
-            and parts[6].endswith("/artifact")
+            len(parts) == 8
+            and parts[:6] == ["", "api", "v1", "ephemeris", "spice", "kernels"]
+            and bool(parts[6])
+            and parts[7] == "artifact"
         ):
-            return self.spice_artifact_limit_bytes
-        if path.startswith("/api/v1/ephemeris/spice/kernels/") and path.endswith("/artifact"):
             return self.spice_artifact_limit_bytes
         return self.default_limit_bytes
 
-    async def __call__(self, scope: dict[str, Any], receive, send) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or scope.get("method") not in {"POST", "PUT", "PATCH"}:
             await self.app(scope, receive, send)
             return
@@ -75,7 +69,7 @@ class RequestBodyLimitMiddleware:
 
         received_bytes = 0
 
-        async def limited_receive():
+        async def limited_receive() -> Message:
             nonlocal received_bytes
             message = await receive()
             if message["type"] == "http.request":
