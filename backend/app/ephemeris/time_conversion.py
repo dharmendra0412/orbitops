@@ -1,5 +1,4 @@
 """Controlled SPICE time conversion using an acquired and inspected LSK artifact."""
-import hashlib  # noqa: I001
 import json
 import os
 import subprocess
@@ -8,12 +7,12 @@ from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
+from app.ephemeris.artifact_snapshot import ArtifactSnapshotError, verified_artifact_snapshot
 from app.ephemeris.kernels import SpiceTimeConversionRecord
 
 
 MAX_CONVERSION_SECONDS = 12
 MAX_LSK_CONVERSION_BYTES = 10 * 1024 * 1024
-HASH_CHUNK_BYTES = 1024 * 1024
 
 
 class SpiceTimeConversionError(Exception):
@@ -42,37 +41,46 @@ def _run_time_worker(
     except FileNotFoundError as error:
         raise SpiceTimeConversionError("Registered LSK artifact is missing from storage") from error
 
-    if not resolved_path.is_relative_to(root) or not resolved_path.is_file():
+    if not resolved_path.is_relative_to(root):
         raise SpiceTimeConversionError("LSK artifact path is outside the configured storage root")
-    if resolved_path.stat().st_size > MAX_LSK_CONVERSION_BYTES:
-        raise SpiceTimeConversionError(
-            f"LSK artifact exceeds the {MAX_LSK_CONVERSION_BYTES} byte conversion limit"
-        )
-
-    digest = hashlib.sha256()
-    with resolved_path.open("rb") as artifact_file:
-        while chunk := artifact_file.read(HASH_CHUNK_BYTES):
-            digest.update(chunk)
-    actual_sha256 = digest.hexdigest()
-    if actual_sha256 != expected_sha256:
-        raise SpiceTimeConversionError("Stored LSK artifact no longer matches its recorded SHA-256")
 
     worker_path = Path(__file__).with_name("time_worker.py")
     backend_root = Path(__file__).resolve().parents[2]
     try:
-        completed = subprocess.run(
-            [sys.executable, "-I", str(worker_path), str(resolved_path), mode, value, str(precision), expected_sha256],
-            cwd=backend_root,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=MAX_CONVERSION_SECONDS,
-            env={
-                "PATH": os.environ.get("PATH", ""),
-                "PYTHONDONTWRITEBYTECODE": "1",
-                **{key: os.environ[key] for key in ("SYSTEMROOT", "WINDIR", "TEMP", "TMP") if key in os.environ},
-            },
-        )
+        with verified_artifact_snapshot(
+            resolved_path,
+            expected_sha256=expected_sha256,
+            max_bytes=MAX_LSK_CONVERSION_BYTES,
+            artifact_label="LSK",
+        ) as (snapshot_path, actual_sha256):
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "-I",
+                    str(worker_path),
+                    str(snapshot_path),
+                    mode,
+                    value,
+                    str(precision),
+                    expected_sha256,
+                ],
+                cwd=backend_root,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=MAX_CONVERSION_SECONDS,
+                env={
+                    "PATH": os.environ.get("PATH", ""),
+                    "PYTHONDONTWRITEBYTECODE": "1",
+                    **{
+                        key: os.environ[key]
+                        for key in ("SYSTEMROOT", "WINDIR", "TEMP", "TMP")
+                        if key in os.environ
+                    },
+                },
+            )
+    except ArtifactSnapshotError as error:
+        raise SpiceTimeConversionError(str(error)) from error
     except subprocess.TimeoutExpired as error:
         raise SpiceTimeConversionError("SPICE time conversion exceeded its time limit") from error
     except OSError as error:
