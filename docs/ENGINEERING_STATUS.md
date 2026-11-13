@@ -40,6 +40,7 @@
 - Bounded SPICE kernel artifact upload (1 GiB application limit), server-computed SHA-256 comparison, temporary staging cleanup, and content-addressed local storage.
 - Pinned SpiceyPy/CSPICE 8.4.0 inspection subprocess with a 12-second timeout and best-effort POSIX resource limits; validates detected kernel family, extracts SPK object IDs/ET coverage, binary PCK frame IDs, and DSK object IDs. Meta-kernels are not furnished.
 - SPICE inspection results are immutable SQLite records; parsing is structural inspection only, not scientific validation.
+- PR #14 CI run #419 passed backend lint, all 125 backend tests, frontend TypeScript typecheck, and frontend production build (one existing Starlette/httpx deprecation warning).
 - PR #14 artifact-acquisition CI run #369 passed backend lint, all 121 backend tests, frontend TypeScript typecheck, and frontend production build.
 
 ## Spacecraft configuration API
