@@ -98,6 +98,10 @@ def test_kernel_coverage_requires_timezone_and_ordered_bounds():
     assert client.post("/api/v1/ephemeris/spice/kernels", json=missing_pair).status_code == 422
 
 
-def test_kernel_not_found_returns_404():
-    response = client.get("/api/v1/ephemeris/spice/kernels/unknown-kernel")
-    assert response.status_code == 404
+def test_kernel_not_found_returns_404(tmp_path):
+    configure_store(tmp_path)
+    try:
+        response = client.get("/api/v1/ephemeris/spice/kernels/unknown-kernel")
+        assert response.status_code == 404
+    finally:
+        clear_overrides()
