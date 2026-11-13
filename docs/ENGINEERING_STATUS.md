@@ -31,7 +31,8 @@
 - Historical mission and spacecraft revision comparison reporting added, removed, and modified requirements/components plus allocations requiring engineering review.
 - Transparent component mass totals, user-declared percentage mass margin, and average power generation/load totals using explicit duty-cycle inputs.
 - Backend tests covering configuration persistence, revision history, dimensional rejection, duplicate component identifiers and budget arithmetic.
-- Frontend controls for mission projects, verification evidence, dataset checksum inspection, propulsion delta-v, power balance and recent model-run retrieval.\n- Bounded PDS4 XML label inspection endpoint with namespace-tolerant metadata extraction, DTD/entity rejection, 5 MiB upload cap, and XML node/depth limits.
+- Frontend controls for mission projects, verification evidence, dataset checksum inspection, propulsion delta-v, power balance and recent model-run retrieval.
+- Bounded PDS4 XML label inspection endpoint with namespace-tolerant metadata extraction, DTD/entity rejection, 5 MiB upload cap, and XML node/depth limits.
 
 ## Spacecraft configuration API
 
@@ -137,4 +138,8 @@ Associations are append-only and do not duplicate or modify the underlying manif
 - POST /api/v1/models/orbital-mechanics/hohmann-transfer — ideal two-burn Hohmann transfer delta-v and transfer time.
 
 The model requires SI inputs, including gravitational parameter in m^3/s^2 and orbital radii in m. It uses a fixed central-body point-mass parameter and two-body analytical equations. Hohmann estimates assume circular, coplanar orbits and impulsive burns. These calculators do not use ephemerides, propagate trajectories, model perturbations, solve launch windows, include plane changes or finite burns, or produce a mission delta-v budget. Results are UNVALIDATED and are not flight-performance or operational-safety predictions.
-\n## PDS4 label inspection API\n\n- `POST /api/v1/datasets/pds4/inspect` — accepts a small `.xml` or `.lbl` label and returns selected Identification_Area, Observation_Area, File_Area_Observational, and array metadata.\n- This is not authoritative PDS4 schema validation; referenced science data are not fetched, source authenticity is not checked, and scientific coordinate/time interpretation is out of scope.\n
+
+## PDS4 label inspection API
+
+- `POST /api/v1/datasets/pds4/inspect` — accepts a small `.xml` or `.lbl` label and returns selected Identification_Area, Observation_Area, File_Area_Observational, and array metadata.
+- This is not authoritative PDS4 schema validation; referenced science data are not fetched, source authenticity is not checked, and scientific coordinate/time interpretation is out of scope.
