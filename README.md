@@ -134,7 +134,7 @@ Requirement allocations are append-only and must reference a requirement in the 
 - `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact` — upload a kernel binary, compute SHA-256 server-side, and persist it only when it matches the registered digest (1 GiB application limit).
 - `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact` — retrieve artifact acquisition metadata.
 
-Secure SPICE artifact acquisition currently requires a POSIX runtime with descriptor-relative filesystem operations (for example, Linux). On unsupported runtimes the upload endpoint returns HTTP 501 before touching the artifact store; other application features may still be used. The README's Windows instructions cover local development, not this POSIX-specific artifact-storage path.
+Secure SPICE artifact operations (upload, inspection, time conversion, and frame transformation) currently require a POSIX runtime with descriptor-relative filesystem and no-follow support (for example, Linux). On unsupported runtimes these endpoints return HTTP 501 before accessing artifact storage; other application features may still be used. The README's Windows instructions cover local development, not this POSIX-specific artifact-storage path.
 - `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection` — inspect the acquired kernel with pinned SpiceyPy/CSPICE 8.4.0.
 - `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection` — retrieve the immutable inspection result.
 - `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/time-conversions` — convert an explicitly UTC-tagged time using one acquired and inspected LSK.
