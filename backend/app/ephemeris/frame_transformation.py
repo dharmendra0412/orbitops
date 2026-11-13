@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
-from app.ephemeris.kernels import SpiceFrameTransformRecord, SpiceFrameTransformRequest
+from app.ephemeris.kernels import SpiceFrameTransformRecord, SpiceFrameTransformRequest  # noqa: I001
 
 
 MAX_FRAME_TRANSFORM_SECONDS = 12
