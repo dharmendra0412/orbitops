@@ -109,6 +109,34 @@ def test_verification_rejects_method_mismatch(tmp_path) -> None:
         clear_overrides()
 
 
+def test_verification_records_are_append_only(tmp_path) -> None:
+    configured_stores(tmp_path)
+    try:
+        project = client.post("/api/v1/missions/projects", json=mission_payload())
+        project_id = project.json()["project_id"]
+        first = client.post(
+            f"/api/v1/missions/projects/{project_id}/verification-records",
+            json=evidence_payload(),
+        )
+        second_payload = evidence_payload()
+        second_payload["outcome"] = "inconclusive"
+        second_payload["performed_at"] = "2026-11-13T10:00:00Z"
+        second_payload["summary"] = "Follow-up review requires additional test evidence."
+        second = client.post(
+            f"/api/v1/missions/projects/{project_id}/verification-records",
+            json=second_payload,
+        )
+        assert first.status_code == 201
+        assert second.status_code == 201
+
+        listed = client.get(f"/api/v1/missions/projects/{project_id}/verification-records")
+        assert listed.status_code == 200
+        assert len(listed.json()) == 2
+        assert {item["outcome"] for item in listed.json()} == {"pass", "inconclusive"}
+    finally:
+        clear_overrides()
+
+
 def test_verification_requires_existing_project() -> None:
     response = client.get(
         "/api/v1/missions/projects/00000000-0000-0000-0000-000000000000/verification-records"
