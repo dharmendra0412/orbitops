@@ -57,7 +57,7 @@ Authentication and per-user/team authorization are not implemented in the curren
 
 ## Independent NAIF time-reference regression
 
-`backend/tests/fixtures/naif0012_reference.tls` is a compact frozen fixture containing the time-system constants and leap-second table from the official NAIF `naif0012.tls` file. The regression test loads this fixture directly through the pinned SpiceyPy/CSPICE dependency and checks that J2000 12:00:00 TDB maps to ET zero, ET zero formats as 2000-01-01 11:58:55.816 UTC, and parsing that UTC instant round-trips to ET zero within the stated tolerance. This is an independent reference-data regression for toolkit time conversion, not a new ORBITOPS time-conversion API and not a claim that the 2017 leap-second snapshot is current. Operational use must acquire and inspect an appropriately maintained LSK and capture its exact digest and provenance.
+`backend/tests/fixtures/naif0012_reference.tls` is a compact frozen fixture containing the time-system constants and leap-second table from the official NAIF `naif0012.tls` file. The regression test loads this fixture directly through the pinned SpiceyPy/CSPICE dependency and checks that J2000 12:00:00 TDB maps to ET zero, ET zero formats as 2000-01-01 11:58:55.816 UTC, and parsing that millisecond-formatted UTC instant round-trips to ET zero within 0.5 ms (the output format is rounded to three decimal places). This is an independent reference-data regression for toolkit time conversion, not a new ORBITOPS time-conversion API and not a claim that the 2017 leap-second snapshot is current. Operational use must acquire and inspect an appropriately maintained LSK and capture its exact digest and provenance.
 
 ## References
 
