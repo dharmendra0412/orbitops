@@ -210,9 +210,11 @@ def test_removed_component_is_flagged_as_stale(tmp_path) -> None:
             f"/api/v1/missions/projects/{project.project_id}/traceability/matrix"
         )
         science = next(row for row in matrix.json()["rows"] if row["requirement_id"] == "SCI-001")
-        assert science["allocated"] is True
+        assert science["allocated"] is False
+        assert science["allocation_count"] == 1
         assert science["active_component_count"] == 0
         assert science["stale_component_ids"] == ["PAY-001"]
+        assert matrix.json()["unallocated_requirement_count"] == 2
     finally:
         clear_overrides()
 
