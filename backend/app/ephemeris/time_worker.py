@@ -1,4 +1,5 @@
 """Isolated UTC/ET conversion using exactly one acquired LSK kernel."""
+import hashlib
 import json
 import math
 import sys
@@ -27,7 +28,17 @@ def main() -> int:
     mode = sys.argv[2]
     value = sys.argv[3]
     precision = int(sys.argv[4])
+    expected_sha256 = sys.argv[5]
     try:
+        if path.stat().st_size > 10 * 1024 * 1024:
+            raise ValueError("LSK artifact exceeds the 10 MiB conversion limit")
+        digest = hashlib.sha256()
+        with path.open("rb") as artifact_file:
+            while chunk := artifact_file.read(1024 * 1024):
+                digest.update(chunk)
+        if digest.hexdigest() != expected_sha256:
+            raise ValueError("LSK artifact changed after the parent integrity check")
+
         architecture, kernel_type = spice.getfat(str(path))
         if architecture.upper() != "KPL" or kernel_type.upper() != "LSK":
             raise ValueError("Time conversion requires a text LSK (KPL/LSK) artifact")
