@@ -3,8 +3,8 @@ from concurrent.futures import ThreadPoolExecutor
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.missions.projects import MissionProjectDraft
 from app.missions.project_routes import get_mission_project_store
+from app.missions.projects import MissionProjectDraft
 from app.storage.mission_projects import MissionProjectStore
 
 client = TestClient(app)
