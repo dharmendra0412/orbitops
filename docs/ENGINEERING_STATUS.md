@@ -1,9 +1,9 @@
 # ORBITOPS Engineering Status
 
 **Snapshot date:** 2026-11-13  
-**Branch:** feature/requirement-subsystem-traceability  
+**Branch:** feature/model-verification-validation  
 **Product scope:** Multi-planetary mission engineering foundation  
-**Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and initial requirement-to-component traceability implemented; engineering acceptance remains pending.
+**Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and requirement-to-component traceability, and initial model verification/validation evidence governance implemented; engineering acceptance remains pending.
 
 ## Implemented
 
@@ -24,6 +24,7 @@
 - Append-only spacecraft configuration revisions associated with a mission project.
 - Append-only requirement-to-component allocations validated against the latest mission and spacecraft revisions.
 - Latest-revision traceability matrix with unallocated requirement counts, stale component references, and verification evidence outcome counts.
+- Registered model catalogue for the current propulsion and power prototypes, with append-only verification/validation assessment records and derived credibility states.
 - Transparent component mass totals, user-declared percentage mass margin, and average power generation/load totals using explicit duty-cycle inputs.
 - Backend tests covering configuration persistence, revision history, dimensional rejection, duplicate component identifiers and budget arithmetic.
 - Frontend controls for mission projects, verification evidence, dataset checksum inspection, propulsion delta-v, power balance and recent model-run retrieval.
@@ -57,7 +58,7 @@ Spacecraft component values inherit their own provenance and credibility fields,
 - Interplanetary trajectory propagation, launch/arrival windows, orbit insertion and transfer design.
 - Destination-specific entry, descent and landing, surface mobility or sample-return models.
 - Battery state-of-charge, thermal network, communications link budget and integrated mission simulation.
-- Independent verification/validation, uncertainty quantification, sensitivity studies and formal acceptance evidence.
+- Independent verification/validation, uncertainty quantification, sensitivity studies and formal acceptance evidence. The new model governance service records assessment entries but does not perform the independent reviews itself.
 - Authentication/authorization, signed/tamper-evident audit records and production deployment hardening.
 
 ## Requirement verification evidence status
@@ -87,3 +88,11 @@ acceptance evidence are reviewed and recorded.
 - GET /api/v1/missions/projects/{project_id}/traceability/matrix — return all requirements in the latest mission revision, their component allocations, unallocated counts, stale component references, and verification evidence outcome counts.
 
 Allocations are append-only. A component removed from a later spacecraft configuration is flagged as stale rather than silently deleted from the traceability record. The matrix counts evidence records but does not interpret a pass as requirement compliance, independent acceptance, or formal verification closure. It currently compares only the latest mission and spacecraft revisions; historical revision comparison is not implemented.
+
+## Model verification and validation governance API
+
+- GET /api/v1/models/governance/catalog — return registered model IDs, versions, equation IDs, assessment counts, latest verification/validation outcomes and derived credibility state.
+- POST /api/v1/models/governance/assessments — append a verification or validation assessment for a registered model version and equation.
+- GET /api/v1/models/governance/assessments — list immutable assessment records, optionally filtered by model ID and version.
+
+The initial registry contains the ideal rocket-equation prototype and constant-power energy-balance prototype. A model is `unvalidated` until a verification pass is recorded; a verification pass advances it to `verified`; verification and validation passes together advance it to `validated`. A later fail or inconclusive outcome for either assessment type changes the derived state to `review_required`. The status is calculated from the latest recorded outcome for each assessment type. It is not an independent audit, certification, flight qualification, or operational approval. Assessment summaries and evidence references are user-entered and not independently authenticated. Validation dataset references, when supplied, must identify a registered dataset manifest.
