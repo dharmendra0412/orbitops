@@ -7,8 +7,8 @@ from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
-from app.ephemeris import kernels
 from app.ephemeris.artifact_snapshot import ArtifactSnapshotError, verified_artifact_snapshot
+from app.ephemeris import kernels
 
 
 MAX_FRAME_TRANSFORM_SECONDS = 12
