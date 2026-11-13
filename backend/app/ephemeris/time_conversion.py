@@ -1,4 +1,4 @@
-"""Controlled UTC-to-ET conversion using an acquired and inspected LSK artifact."""
+"""Controlled SPICE time conversion using an acquired and inspected LSK artifact."""
 import hashlib  # noqa: I001
 import json
 import os
@@ -19,12 +19,16 @@ class SpiceTimeConversionError(Exception):
     """Raised when a registered LSK cannot safely perform a time conversion."""
 
 
-def convert_utc_to_et(
+def _run_time_worker(
     *,
     kernel_id: str,
-    utc_time: str,
+    mode: str,
+    value: str,
     expected_sha256: str,
     storage_root: Path,
+    input_utc: str | None = None,
+    input_et_seconds: float | None = None,
+    precision: int = 6,
 ) -> SpiceTimeConversionRecord:
     """Verify the acquired LSK bytes, then convert in a bounded child process."""
     root = storage_root.resolve()
@@ -52,7 +56,7 @@ def convert_utc_to_et(
     backend_root = Path(__file__).resolve().parents[2]
     try:
         completed = subprocess.run(
-            [sys.executable, "-I", str(worker_path), str(resolved_path), utc_time],
+            [sys.executable, "-I", str(worker_path), str(resolved_path), mode, value, str(precision)],
             cwd=backend_root,
             capture_output=True,
             text=True,
@@ -75,7 +79,7 @@ def convert_utc_to_et(
         raise SpiceTimeConversionError("SPICE time worker returned an invalid result") from error
 
     if completed.returncode != 0:
-        raise SpiceTimeConversionError(str(result.get("detail", "CSPICE rejected the UTC input"))[:500])
+        raise SpiceTimeConversionError(str(result.get("detail", "CSPICE rejected the time input"))[:500])
 
     try:
         toolkit_version = version("spiceypy")
@@ -89,10 +93,50 @@ def convert_utc_to_et(
             kernel_id=kernel_id,
             artifact_sha256=actual_sha256,
             toolkit_version=toolkit_version,
-            input_utc=utc_time,
+            input_utc=input_utc,
+            input_et_seconds=input_et_seconds,
+            conversion_direction=mode,
             et_seconds=float(result["et_seconds"]),
             normalized_utc=str(result["normalized_utc"]),
             converted_at=datetime.now(UTC),
         )
     except (KeyError, TypeError, ValueError) as error:
         raise SpiceTimeConversionError("SPICE time worker returned an invalid conversion record") from error
+
+
+def convert_utc_to_et(
+    *,
+    kernel_id: str,
+    utc_time: str,
+    expected_sha256: str,
+    storage_root: Path,
+) -> SpiceTimeConversionRecord:
+    """Convert an explicitly UTC-tagged string to ET seconds past J2000 TDB."""
+    return _run_time_worker(
+        kernel_id=kernel_id,
+        mode="utc_to_et",
+        value=utc_time,
+        expected_sha256=expected_sha256,
+        storage_root=storage_root,
+        input_utc=utc_time,
+    )
+
+
+def convert_et_to_utc(
+    *,
+    kernel_id: str,
+    et_seconds: float,
+    precision: int,
+    expected_sha256: str,
+    storage_root: Path,
+) -> SpiceTimeConversionRecord:
+    """Convert finite ET seconds past J2000 TDB to UTC using the selected LSK."""
+    return _run_time_worker(
+        kernel_id=kernel_id,
+        mode="et_to_utc",
+        value=str(et_seconds),
+        expected_sha256=expected_sha256,
+        storage_root=storage_root,
+        input_et_seconds=et_seconds,
+        precision=precision,
+    )
