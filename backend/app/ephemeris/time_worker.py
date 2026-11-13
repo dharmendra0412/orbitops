@@ -5,11 +5,10 @@ import math
 import sys
 from pathlib import Path
 
-import spiceypy as spice
 
 
 def apply_process_limits() -> None:
-    """Apply best-effort POSIX limits before entering native CSPICE code."""
+    """Apply POSIX resource limits before importing native CSPICE bindings."""
     try:
         import resource
     except ImportError:
@@ -17,13 +16,15 @@ def apply_process_limits() -> None:
 
     resource.setrlimit(resource.RLIMIT_CPU, (8, 8))
     resource.setrlimit(resource.RLIMIT_AS, (2 * 1024 * 1024 * 1024, 2 * 1024 * 1024 * 1024))
-    resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
+    resource.setrlimit(resource.RLIMIT_FSIZE, (4096, 4096))
     resource.setrlimit(resource.RLIMIT_NOFILE, (32, 32))
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
 
 
 def main() -> int:
     apply_process_limits()
+    import spiceypy as spice
+
     path = Path(sys.argv[1]).resolve(strict=True)
     mode = sys.argv[2]
     value = sys.argv[3]
