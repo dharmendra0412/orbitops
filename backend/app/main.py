@@ -12,8 +12,8 @@ from app.missions.routes import router as mission_catalog_router
 from app.missions.spacecraft_routes import router as spacecraft_router
 from app.missions.traceability_routes import router as traceability_router
 from app.missions.verification_routes import router as mission_verification_router
-from app.orbital.routes import router as orbital_router
 from app.ingestion.pds4 import router as pds4_router
+from app.orbital.routes import router as orbital_router
 from app.power.routes import router as power_router
 from app.propulsion.routes import router as propulsion_router
 from app.settings import settings
