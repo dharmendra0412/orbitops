@@ -1,5 +1,5 @@
 """Resource-limited subprocess for read-only SPICE kernel metadata inspection."""
-import json
+import json  # noqa: I001
 import sys
 from pathlib import Path
 
@@ -88,7 +88,8 @@ def main() -> int:
     try:
         print(json.dumps(inspect_kernel(path, expected_type), separators=(",", ":")))
         return 0
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001
+        # Serialize parser failures instead of returning an uncontrolled traceback.
         print(json.dumps({"error": type(error).__name__, "detail": str(error)[:500]}))
         return 2
 
