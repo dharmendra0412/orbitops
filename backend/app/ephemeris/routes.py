@@ -11,9 +11,11 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 
 from app.ephemeris.kernels import (
     SpiceKernelArtifactRecord,
+    SpiceKernelInspectionRecord,
     SpiceKernelRecord,
     SpiceKernelRegistration,
 )
+from app.ephemeris.inspection import SpiceInspectionError, inspect_artifact
 from app.settings import settings
 from app.storage.spice_kernels import SpiceKernelAlreadyExistsError, SpiceKernelStore
 
@@ -166,3 +168,55 @@ def get_spice_kernel_artifact(
     if artifact is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SPICE artifact not acquired")
     return artifact
+
+
+@router.post("/{kernel_id}/inspection", response_model=SpiceKernelInspectionRecord,
+             status_code=status.HTTP_201_CREATED)
+def inspect_spice_kernel_artifact(
+    kernel_id: str,
+    store: Annotated[SpiceKernelStore, Depends(get_spice_kernel_store)],
+) -> SpiceKernelInspectionRecord:
+    """Inspect an acquired kernel's declared format and supported index metadata."""
+    registration = store.get(kernel_id)
+    if registration is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SPICE kernel not found")
+
+    artifact = store.get_artifact(kernel_id)
+    if artifact is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Acquire the kernel artifact before inspection")
+
+    if store.get_inspection(kernel_id) is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Kernel artifact already inspected")
+
+    try:
+        inspection = inspect_artifact(
+            kernel_id=kernel_id,
+            expected_type=registration.registration.kernel_type.value,
+            expected_sha256=artifact.sha256,
+            storage_root=settings.spice_kernel_storage_path,
+        )
+        return store.create_inspection(inspection)
+    except SpiceInspectionError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(error),
+        ) from error
+    except SpiceKernelAlreadyExistsError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Kernel artifact was concurrently inspected",
+        ) from error
+
+
+@router.get("/{kernel_id}/inspection", response_model=SpiceKernelInspectionRecord)
+def get_spice_kernel_inspection(
+    kernel_id: str,
+    store: Annotated[SpiceKernelStore, Depends(get_spice_kernel_store)],
+) -> SpiceKernelInspectionRecord:
+    """Retrieve the immutable result of a completed kernel inspection."""
+    if store.get(kernel_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SPICE kernel not found")
+    inspection = store.get_inspection(kernel_id)
+    if inspection is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Kernel inspection not found")
+    return inspection
