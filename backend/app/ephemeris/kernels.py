@@ -115,6 +115,7 @@ class SpiceKernelInspectionRecord(BaseModel):
     detected_kernel_type: str
     registration_type_matches: bool = True
     object_ids: list[int] = Field(default_factory=list)
+    frame_class_ids: list[int] = Field(default_factory=list)
     coverage_intervals: list[dict[str, object]] = Field(default_factory=list)
     metadata_truncated: bool = False
     inspection_scope: str
