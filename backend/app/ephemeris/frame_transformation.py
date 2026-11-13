@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
-from app.ephemeris.kernels import SpiceFrameTransformRecord, SpiceFrameTransformRequest  # noqa: I001
+from app.ephemeris import kernels
 
 
 MAX_FRAME_TRANSFORM_SECONDS = 12
@@ -22,10 +22,10 @@ class SpiceFrameTransformError(Exception):
 def transform_frame(
     *,
     kernel_id: str,
-    request: SpiceFrameTransformRequest,
+    request: kernels.SpiceFrameTransformRequest,
     expected_sha256: str,
     storage_root: Path,
-) -> SpiceFrameTransformRecord:
+) -> kernels.SpiceFrameTransformRecord:
     """Verify a single acquired FK and run a bounded inertial/fixed-frame transform."""
     root = storage_root.resolve()
     artifact_path = root / "sha256" / expected_sha256[:2] / expected_sha256
@@ -92,7 +92,7 @@ def transform_frame(
 
     try:
         toolkit_version = version("spiceypy")
-        return SpiceFrameTransformRecord(
+        return kernels.SpiceFrameTransformRecord(
             kernel_id=kernel_id,
             artifact_sha256=actual_sha256,
             toolkit_version=toolkit_version,
