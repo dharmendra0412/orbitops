@@ -1,4 +1,4 @@
-from fastapi.testclient import TestClient
+import hashlib\n\nfrom fastapi.testclient import TestClient\n\nimport app.ephemeris.routes as spice_routes
 
 from app.ephemeris.routes import get_spice_kernel_store
 from app.main import app
@@ -111,5 +111,95 @@ def test_kernel_not_found_returns_404(tmp_path):
     try:
         response = client.get("/api/v1/ephemeris/spice/kernels/unknown-kernel")
         assert response.status_code == 404
+    finally:
+        clear_overrides()
+
+
+def test_artifact_upload_computes_digest_and_persists_content_addressed_file(tmp_path, monkeypatch):
+    configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", tmp_path / "artifacts")
+    content = b"SPICE test kernel bytes"
+    registration = payload()
+    registration["sha256"] = hashlib.sha256(content).hexdigest()
+    try:
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=registration).status_code == 201
+        response = client.post(
+            "/api/v1/ephemeris/spice/kernels/naif0012.tls/artifact",
+            files={"upload": ("untrusted-name.bin", content, "application/octet-stream")},
+        )
+        assert response.status_code == 201
+        body = response.json()
+        assert body["sha256"] == registration["sha256"]
+        assert body["size_bytes"] == len(content)
+        assert body["checksum_status"] == "matches_user_declared"
+        artifact_path = tmp_path / "artifacts" / body["storage_key"]
+        assert artifact_path.read_bytes() == content
+
+        metadata = client.get("/api/v1/ephemeris/spice/kernels/naif0012.tls/artifact")
+        assert metadata.status_code == 200
+        assert metadata.json()["sha256"] == registration["sha256"]
+    finally:
+        clear_overrides()
+
+
+def test_artifact_upload_rejects_digest_mismatch_and_leaves_no_artifact(tmp_path, monkeypatch):
+    configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", tmp_path / "artifacts")
+    try:
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=payload()).status_code == 201
+        response = client.post(
+            "/api/v1/ephemeris/spice/kernels/naif0012.tls/artifact",
+            files={"upload": ("kernel.bin", b"not the declared bytes", "application/octet-stream")},
+        )
+        assert response.status_code == 422
+        assert client.get("/api/v1/ephemeris/spice/kernels/naif0012.tls/artifact").status_code == 404
+        assert not list((tmp_path / "artifacts" / ".staging").glob("*.part"))
+    finally:
+        clear_overrides()
+
+
+def test_artifact_upload_enforces_size_limit(tmp_path, monkeypatch):
+    configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", tmp_path / "artifacts")
+    monkeypatch.setattr(spice_routes, "MAX_KERNEL_UPLOAD_BYTES", 4)
+    content = b"12345"
+    registration = payload()
+    registration["sha256"] = hashlib.sha256(content).hexdigest()
+    try:
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=registration).status_code == 201
+        response = client.post(
+            "/api/v1/ephemeris/spice/kernels/naif0012.tls/artifact",
+            files={"upload": ("kernel.bin", content, "application/octet-stream")},
+        )
+        assert response.status_code == 413
+        assert not list((tmp_path / "artifacts" / ".staging").glob("*.part"))
+    finally:
+        clear_overrides()
+
+
+def test_artifact_upload_requires_registered_kernel_and_rejects_second_upload(tmp_path, monkeypatch):
+    configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", tmp_path / "artifacts")
+    content = b"registered kernel bytes"
+    registration = payload()
+    registration["sha256"] = hashlib.sha256(content).hexdigest()
+    try:
+        missing = client.post(
+            "/api/v1/ephemeris/spice/kernels/missing/artifact",
+            files={"upload": ("kernel.bin", content, "application/octet-stream")},
+        )
+        assert missing.status_code == 404
+
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=registration).status_code == 201
+        first = client.post(
+            "/api/v1/ephemeris/spice/kernels/naif0012.tls/artifact",
+            files={"upload": ("kernel.bin", content, "application/octet-stream")},
+        )
+        assert first.status_code == 201
+        second = client.post(
+            "/api/v1/ephemeris/spice/kernels/naif0012.tls/artifact",
+            files={"upload": ("kernel.bin", content, "application/octet-stream")},
+        )
+        assert second.status_code == 409
     finally:
         clear_overrides()
