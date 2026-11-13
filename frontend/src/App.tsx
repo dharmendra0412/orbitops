@@ -327,6 +327,7 @@ export default function App() {
       const result = await response.json();
       if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to save configuration");
       setSpacecraftRecord(result as SpacecraftRecord);
+      setTraceabilityComponentId(spacecraftComponents[0]?.component_id ?? "");
       const budgetResponse = await fetch(base + "/budgets");
       if (budgetResponse.ok) setSpacecraftBudget(await budgetResponse.json() as SpacecraftBudget);
       setSpacecraftState("success");
@@ -707,7 +708,7 @@ export default function App() {
           </select></label>
         </div>
         <label className="model-field">Allocation rationale<textarea value={traceabilityRationale} onChange={(e) => setTraceabilityRationale(e.target.value)} placeholder="Explain why this component is assigned to the requirement." rows={2} /></label>
-        <button className="inspect-button model-button" type="button" onClick={createRequirementAllocation} disabled={traceabilityState === "calculating" || spacecraftComponents.length === 0 || selectedProject.revision.draft.requirements.length === 0}>
+        <button className="inspect-button model-button" type="button" onClick={createRequirementAllocation} disabled={traceabilityState === "calculating" || !spacecraftRecord || spacecraftComponents.length === 0 || selectedProject.revision.draft.requirements.length === 0}>
           {traceabilityState === "calculating" ? <LoaderCircle size={16} className="spin" /> : <FileCheck2 size={16} />}
           {traceabilityState === "calculating" ? "Saving allocation..." : "Allocate requirement"}
         </button>
