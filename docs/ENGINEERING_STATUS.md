@@ -1,9 +1,9 @@
 # ORBITOPS Engineering Status
 
 **Snapshot date:** 2026-11-13  
-**Branch:** feature/dataset-ingestion-workflow  
+**Branch:** feature/mission-review-package  
 **Product scope:** Multi-planetary mission engineering foundation  
-**Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and requirement-to-component traceability, and model verification/validation evidence governance, and historical revision change-impact analysis, and frontend checksum-to-manifest registration workflow implemented; engineering acceptance remains pending.
+**Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and requirement-to-component traceability, and model verification/validation evidence governance, and historical revision change-impact analysis, and frontend checksum-to-manifest registration workflow, and consolidated mission review package implemented; engineering acceptance remains pending.
 
 ## Implemented
 
@@ -13,6 +13,7 @@
 - Dataset manifest validation and immutable SQLite metadata registry.
 - SHA-256 file inspection with a 100 MiB limit; uploaded file bytes are not persisted.
 - Frontend dataset registration workflow that uses the inspected checksum to create source manifests and browse registered dataset metadata.
+- Consolidated project review package endpoint and frontend JSON export for mission revision, spacecraft configuration, budgets, traceability, and requirement verification evidence.
 - SQLite model-run snapshots preserving inputs, outputs, model/equation IDs,
   assumptions, limitations and UTC run time.
 - Ideal Tsiolkovsky rocket-equation delta-v prototype (UNVALIDATED).
@@ -110,3 +111,9 @@ The report identifies added, removed and modified mission requirements and space
 The frontend now connects bounded file checksum inspection to source dataset manifest registration. A manifest records provider, product ID, release/version, source URL, citation, retrieval time, file identity, media type, data format, file size, SHA-256 checksum, license/terms, access classification, and optional asset/frame/time metadata. Registered manifests can be browsed in the frontend.
 
 The workflow records metadata and file identity only. Uploaded file bytes are not persisted. The service does not download archive products, decode PDS/FITS/SPICE formats, transform coordinate/time systems, verify source authenticity, or assess scientific correctness. Product metadata and citations must be supplied from the authoritative archive/provider by the user.
+
+## Mission engineering review package
+
+- GET /api/v1/missions/projects/{project_id}/review-package — compile the latest mission project, spacecraft configuration (when present), mass/average-power bookkeeping, latest traceability matrix, and append-only requirement verification evidence into one response.
+
+The package derives an evidence completeness state: `incomplete`, `review_required`, or `evidence_compiled`. These are workflow labels only. `evidence_compiled` does not mean design approval, mission feasibility, flight readiness, or safety acceptance. Findings call out missing spacecraft configuration, unallocated requirements, missing evidence, stale allocations, failed evidence, and inconclusive evidence. Model assessments and dataset manifests are not yet linked to mission projects and are therefore excluded from this package. The frontend can export the package as JSON for review.
