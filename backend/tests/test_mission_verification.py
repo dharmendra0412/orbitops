@@ -4,10 +4,10 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.missions.project_routes import get_mission_project_store
-from app.missions.verification_routes import get_mission_verification_store
 from app.missions.projects import MissionProjectDraft
-from app.storage.mission_projects import MissionProjectStore
 from app.missions.verification import VerificationRecordCreate
+from app.missions.verification_routes import get_mission_verification_store
+from app.storage.mission_projects import MissionProjectStore
 from app.storage.mission_verification import MissionVerificationStore
 
 client = TestClient(app)
