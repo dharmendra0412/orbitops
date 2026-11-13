@@ -3,8 +3,6 @@ import json  # noqa: I001
 import sys
 from pathlib import Path
 
-import spiceypy as spice
-
 
 MAX_OBJECT_IDS = 256
 MAX_COVERAGE_INTERVALS_PER_OBJECT = 128
@@ -12,7 +10,12 @@ SPICE_CELL_CAPACITY = 20_000
 
 
 def apply_process_limits() -> None:
-    """Apply best-effort POSIX resource limits before calling native CSPICE code."""
+    """Apply POSIX resource limits before importing native CSPICE bindings.
+
+    Non-POSIX platforms without the resource module retain the parent process
+    timeout and private-snapshot protections. On POSIX, a failed limit
+    installation is fatal: inspection must not silently continue unbounded.
+    """
     try:
         import resource
     except ImportError:
@@ -26,6 +29,10 @@ def apply_process_limits() -> None:
 
 
 def inspect_kernel(path: Path, expected_type: str) -> dict:
+    # Importing SpiceyPy loads native CSPICE code, so this must remain inside
+    # the inspection function and after apply_process_limits() in main().
+    import spiceypy as spice
+
     architecture, detected_type = spice.getfat(str(path))
     if detected_type.upper() != expected_type.upper():
         raise ValueError(
