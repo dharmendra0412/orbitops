@@ -1,7 +1,7 @@
 """Safe, bounded inspection of PDS4 XML labels (metadata only)."""
 import re
 import xml.etree.ElementTree as ET
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from pydantic import BaseModel
@@ -141,7 +141,7 @@ def inspect_pds4_label(xml_bytes: bytes, file_name: str) -> PDS4LabelInspection:
 
 
 @router.post("/inspect", response_model=PDS4LabelInspection)
-async def inspect_uploaded_pds4_label(file: UploadFile = File(...)) -> PDS4LabelInspection:
+async def inspect_uploaded_pds4_label(file: Annotated[UploadFile, File()]) -> PDS4LabelInspection:
     """Inspect a small PDS4 XML label; referenced science data are never uploaded."""
     name = file.filename
     if not name or "/" in name or "\\" in name or name in {".", ".."}:
