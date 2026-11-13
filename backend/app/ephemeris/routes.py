@@ -5,7 +5,6 @@ import secrets
 import stat
 from datetime import UTC, datetime
 from functools import lru_cache
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
