@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 from app.ephemeris.kernels import SpiceKernelInspectionRecord
@@ -78,9 +79,7 @@ def inspect_artifact(
             kernel_id=kernel_id,
             artifact_sha256=actual_sha256,
             toolkit_version=spiceypy.__version__,
-            inspected_at=__import__("datetime").datetime.now(
-                __import__("datetime").UTC
-            ),
+            inspected_at=datetime.now(UTC),
             **result,
         )
     except (json.JSONDecodeError, TypeError, ValueError, KeyError) as error:
