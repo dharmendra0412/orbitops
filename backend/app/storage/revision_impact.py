@@ -57,8 +57,6 @@ class RevisionImpactStore:
     def _diff_records(
         baseline: dict[str, dict],
         target: dict[str, dict],
-        *,
-        key: str,
     ) -> list[dict]:
         changes = []
         for record_id in sorted(set(baseline) | set(target)):
@@ -89,6 +87,11 @@ class RevisionImpactStore:
 
         project_key = str(project_id)
         with self._connection() as connection:
+            project_table = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'mission_projects'"
+            ).fetchone()
+            if project_table is None:
+                raise RevisionImpactProjectNotFoundError(project_key)
             project_exists = connection.execute(
                 "SELECT 1 FROM mission_projects WHERE project_id = ?", (project_key,)
             ).fetchone()
@@ -107,6 +110,11 @@ class RevisionImpactStore:
             if baseline_mission_revision not in mission_by_number or target_mission_revision not in mission_by_number:
                 raise RevisionImpactRevisionNotFoundError()
 
+            configuration_table = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'spacecraft_configurations'"
+            ).fetchone()
+            if configuration_table is None:
+                raise RevisionImpactConfigurationNotFoundError(project_key)
             configuration = connection.execute(
                 "SELECT configuration_id FROM spacecraft_configurations WHERE project_id = ?",
                 (project_key,),
@@ -135,15 +143,20 @@ class RevisionImpactStore:
             ):
                 raise RevisionImpactRevisionNotFoundError()
 
-            allocation_rows = connection.execute(
-                """
-                SELECT allocation_id, requirement_id, component_id
-                FROM requirement_allocations
-                WHERE project_id = ?
-                ORDER BY requirement_id, component_id, allocation_id
-                """,
-                (project_key,),
-            ).fetchall()
+            allocation_table = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'requirement_allocations'"
+            ).fetchone()
+            allocation_rows = []
+            if allocation_table is not None:
+                allocation_rows = connection.execute(
+                    """
+                    SELECT allocation_id, requirement_id, component_id
+                    FROM requirement_allocations
+                    WHERE project_id = ?
+                    ORDER BY requirement_id, component_id, allocation_id
+                    """,
+                    (project_key,),
+                ).fetchall()
 
         baseline_requirements = {
             item["requirement_id"]: item for item in mission_by_number[baseline_mission_revision]["requirements"]
@@ -159,10 +172,10 @@ class RevisionImpactStore:
         }
 
         requirement_diffs = self._diff_records(
-            baseline_requirements, target_requirements, key="requirement_id"
+            baseline_requirements, target_requirements
         )
         component_diffs = self._diff_records(
-            baseline_components, target_components, key="component_id"
+            baseline_components, target_components
         )
 
         requirement_changes = [
