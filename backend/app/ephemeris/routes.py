@@ -104,6 +104,12 @@ async def upload_spice_kernel_artifact(
             destination.flush()
             os.fsync(destination.fileno())
 
+        if size_bytes == 0:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Uploaded kernel artifact must not be empty",
+            )
+
         computed_sha256 = digest.hexdigest()
         declared_sha256 = registration_record.registration.sha256
         if computed_sha256 != declared_sha256:
