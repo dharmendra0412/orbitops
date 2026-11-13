@@ -1,10 +1,9 @@
 """Mission engineering review package API."""
 from datetime import UTC, datetime
-from uuid import uuid4
+from typing import Annotated
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from typing import Annotated
-from uuid import UUID
 
 from app.missions.review_package import (
     MissionReviewPackage,
