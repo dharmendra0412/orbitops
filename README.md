@@ -14,6 +14,14 @@ See [the current engineering status and remaining release gates](docs/ENGINEERIN
 
 The engineering-grade foundation, mission workspaces, spacecraft configuration, and requirement traceability workstreams are developed on feature branches and remain subject to automated CI and engineering acceptance.
 
+## Reference resources and scientific credibility
+
+See [the curated mission engineering resource library](docs/REFERENCE_RESOURCES.md) for NASA, JPL, and Canadian Space Agency references. External tools such as GMAT and NASA Mission Viz are linked as independent resources; they are not represented as ORBITOPS integrations.
+
+ORBITOPS must not fabricate telemetry, mission outputs, orbital states, trajectories, scientific observations, or validation claims. Computed outputs must identify the implemented method, input provenance, units, assumptions, model version, limitations, and credibility status. A visualization may only animate a trajectory when it is driven by a declared propagator and time-tagged state data; otherwise it must be clearly marked as illustrative and must not be presented as a simulation. The current ideal rocket-equation and power-balance features are calculators/prototypes, not end-to-end mission simulations.
+
+NASA and other agency references do not imply endorsement of ORBITOPS. External datasets and software remain subject to their own licence and data-use conditions.
+
 ## Current stack
 
 - Backend: Python 3.11+, FastAPI, Pydantic, SQLite
