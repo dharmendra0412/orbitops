@@ -20,6 +20,7 @@
   GET /api/v1/missions/catalog.
 - Persistent mission project workspaces with typed requirements, immutable numbered revisions, retrieval and pagination.
 - Append-only requirement verification evidence registry linked to requirements in the latest project revision, with verification-method consistency checks.
+- Frontend form for defining an initial science requirement and recording/listing its verification evidence.
 - Frontend controls for dataset checksum inspection, propulsion delta-v, power
   balance and recent model-run retrieval.
 
