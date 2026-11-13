@@ -1,6 +1,7 @@
 import hashlib
 import os
 import sqlite3
+from datetime import UTC, datetime
 
 import pytest
 import spiceypy as spice
@@ -10,7 +11,8 @@ import app.ephemeris.routes as spice_routes
 import app.ephemeris.time_conversion as spice_time_conversion
 from app.ephemeris.routes import get_spice_kernel_store
 from app.main import app
-from app.storage.spice_kernels import SpiceKernelStore
+from app.storage.spice_kernels import SpiceKernelAlreadyExistsError, SpiceKernelStore
+from app.ephemeris.kernels import SpiceKernelArtifactRecord, SpiceKernelInspectionRecord
 
 client = TestClient(app)
 
@@ -984,3 +986,42 @@ def test_spice_registry_startup_detects_preexisting_foreign_key_violations(tmp_p
 
     with pytest.raises(RuntimeError, match="existing foreign-key violations"):
         SpiceKernelStore(database_path)
+
+
+
+def test_spice_store_does_not_misclassify_foreign_key_failures_as_duplicates(tmp_path):
+    store = SpiceKernelStore(tmp_path / "spice-kernels.sqlite3")
+    now = datetime.now(UTC)
+
+    artifact = SpiceKernelArtifactRecord(
+        kernel_id="missing-registration",
+        sha256="a" * 64,
+        size_bytes=1,
+        storage_key="sha256/aa/" + "a" * 64,
+        acquired_at=now,
+    )
+    with pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY constraint failed"):
+        store.create_artifact(artifact)
+
+    inspection = SpiceKernelInspectionRecord(
+        kernel_id="missing-artifact",
+        artifact_sha256="b" * 64,
+        toolkit_version="8.4.0",
+        detected_architecture="KPL",
+        detected_kernel_type="LSK",
+        inspection_scope="regression-test",
+        inspected_at=now,
+    )
+    with pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY constraint failed"):
+        store.create_inspection(inspection)
+
+
+def test_spice_store_still_maps_duplicate_registry_records_to_conflict(tmp_path):
+    from app.ephemeris.kernels import SpiceKernelRegistration
+
+    store = SpiceKernelStore(tmp_path / "spice-kernels.sqlite3")
+    registration = SpiceKernelRegistration.model_validate(payload())
+    store.create(registration)
+
+    with pytest.raises(SpiceKernelAlreadyExistsError):
+        store.create(registration)
