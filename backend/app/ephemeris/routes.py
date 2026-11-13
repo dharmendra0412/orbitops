@@ -89,14 +89,17 @@ def _publish_content_addressed_artifact(
     *,
     expected_sha256: str,
     expected_size: int,
+    lock_held: bool = False,
 ) -> None:
-    """Serialize publication in a pinned digest directory without following links."""
+    """Publish under the digest-directory lock without following links."""
     import fcntl
 
     try:
-        # flock on the pinned directory descriptor avoids a lock-file pathname
-        # and serializes deduplication with the publisher's staging-link cleanup.
-        fcntl.flock(artifact_directory_fd, fcntl.LOCK_EX)
+        # The upload route can retain this lock through the SQLite commit so a
+        # future orphan reconciler cannot mistake an in-flight publication for
+        # an abandoned artifact. Standalone callers retain the original behavior.
+        if not lock_held:
+            fcntl.flock(artifact_directory_fd, fcntl.LOCK_EX)
         os.chmod(temporary_name, 0o444, dir_fd=staging_fd, follow_symlinks=False)
         try:
             os.link(
@@ -139,15 +142,16 @@ def _publish_content_addressed_artifact(
             detail="Unable to safely publish or verify the content-addressed artifact",
         ) from error
     finally:
-        try:
-            os.unlink(temporary_name, dir_fd=staging_fd)
-        except FileNotFoundError:
-            pass
-        finally:
+        if not lock_held:
             try:
-                fcntl.flock(artifact_directory_fd, fcntl.LOCK_UN)
-            except OSError:
+                os.unlink(temporary_name, dir_fd=staging_fd)
+            except FileNotFoundError:
                 pass
+            finally:
+                try:
+                    fcntl.flock(artifact_directory_fd, fcntl.LOCK_UN)
+                except OSError:
+                    pass
 
 
 @lru_cache(maxsize=1)
@@ -264,12 +268,19 @@ async def upload_spice_kernel_artifact(
         finally:
             os.close(sha_directory_fd)
         artifact_parent_fd = prefix_fd
+        import fcntl
+
+        # Keep the digest-directory lock until the database row is committed.
+        # Otherwise a recovery process could observe the published file in the
+        # interval before create_artifact() and incorrectly classify it as orphaned.
+        fcntl.flock(artifact_parent_fd, fcntl.LOCK_EX)
         _publish_content_addressed_artifact(
             temporary_name,
             staging_fd,
             artifact_parent_fd,
             expected_sha256=computed_sha256,
             expected_size=size_bytes,
+            lock_held=True,
         )
 
         storage_key = f"sha256/{computed_sha256[:2]}/{computed_sha256}"
@@ -302,6 +313,12 @@ async def upload_spice_kernel_artifact(
                 pass
             os.close(staging_fd)
         if artifact_parent_fd is not None:
+            try:
+                import fcntl
+
+                fcntl.flock(artifact_parent_fd, fcntl.LOCK_UN)
+            except OSError:
+                pass
             os.close(artifact_parent_fd)
         if root_fd is not None:
             os.close(root_fd)
