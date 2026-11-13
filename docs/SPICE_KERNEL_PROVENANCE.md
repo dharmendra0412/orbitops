@@ -19,29 +19,29 @@ Duplicate identifiers return HTTP 409. List operations are paginated. Registrati
 
 ## Artifact acquisition API
 
-- \`POST /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact\` — multipart upload in field \`upload\`.
-- \`GET /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact\` — return acquisition metadata; it does not return binary bytes.
+- `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact` — multipart upload in field `upload`.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact` — return acquisition metadata; it does not return binary bytes.
 
-The application reads the uploaded file in 1 MiB chunks and enforces a 1 GiB maximum. It writes to a temporary staging file, computes SHA-256 over the received bytes, and compares the computed digest with the registered digest. A mismatch returns HTTP 422 and the staging file is removed. A successful match is moved into content-addressed storage at \`sha256/{first-two-hex}/{full-sha256}\`; the resulting metadata is appended to SQLite. A kernel can have one acquired artifact record; repeat uploads return HTTP 409.
+The application reads the uploaded file in 1 MiB chunks and enforces a 1 GiB maximum. It writes to a temporary staging file, computes SHA-256 over the received bytes, and compares the computed digest with the registered digest. A mismatch returns HTTP 422 and the staging file is removed. A successful match is moved into content-addressed storage at `sha256/{first-two-hex}/{full-sha256}`; the resulting metadata is appended to SQLite. A kernel can have one acquired artifact record; repeat uploads return HTTP 409.
 
-Configure the storage root with \`SPICE_KERNEL_STORAGE_PATH\`; the default is \`data/spice-kernels\`. Deployments should use a dedicated volume with restrictive filesystem permissions, backups, monitoring, and sufficient capacity. Configure an ingress/reverse-proxy request-body limit as well: the application-level limit is not a substitute for an upstream HTTP body-size limit because multipart parsing may spool data before the route processes it.
+Configure the storage root with `SPICE_KERNEL_STORAGE_PATH`; the default is `data/spice-kernels`. Deployments should use a dedicated volume with restrictive filesystem permissions, backups, monitoring, and sufficient capacity. Configure an ingress/reverse-proxy request-body limit as well: the application-level limit is not a substitute for an upstream HTTP body-size limit because multipart parsing may spool data before the route processes it.
 
 ## Kernel inspection API
 
-- \`POST /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection\` — inspect an acquired artifact once and append an immutable inspection record.
-- \`GET /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection\` — retrieve that inspection record.
+- `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection` — inspect an acquired artifact once and append an immutable inspection record.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection` — retrieve that inspection record.
 
-The optional backend dependency is pinned to \`spiceypy==8.4.0\` (NAIF CSPICE wrapper). CI installs the \`spice\` extra so the same toolkit version is exercised in automated tests.
+The optional backend dependency is pinned to `spiceypy==8.4.0` (NAIF CSPICE wrapper). CI installs the `spice` extra so the same toolkit version is exercised in automated tests.
 
 Before parsing, ORBITOPS re-computes the stored artifact SHA-256 and rejects missing, changed, or path-escaped files. It invokes a child Python process with a 12-second wall-clock timeout. On POSIX, the worker applies CPU, address-space, file-size, open-file, and core-dump resource limits. This is process separation with best-effort resource limits, not a complete operating-system sandbox; production deployment still requires a hardened isolated worker/container with no network access and strict filesystem permissions.
 
-CSPICE \`getfat\` inspects the file architecture and kernel type. A mismatch against the registered family is rejected. For SPK files, the worker extracts object IDs and per-object coverage intervals using CSPICE SPK routines. Coverage is returned as raw ET seconds past J2000 TDB and is not converted to UTC. For binary PCK files, frame class IDs are extracted. For DSK files, object IDs are extracted. Other registered kernel families receive header/type inspection only in this increment.
+CSPICE `getfat` inspects the file architecture and kernel type. A mismatch against the registered family is rejected. For SPK files, the worker extracts object IDs and per-object coverage intervals using CSPICE SPK routines. Coverage is returned as raw ET seconds past J2000 TDB and is not converted to UTC. For binary PCK files, frame class IDs are extracted. For DSK files, object IDs are extracted. Other registered kernel families receive header/type inspection only in this increment.
 
-Meta-kernels are never furnished or loaded. The worker does not call \`furnsh\`, so a user-supplied meta-kernel cannot cause CSPICE to follow arbitrary local paths. Text-kernel variables, CK inventory/coverage, and full segment-level summaries are not yet extracted. Output collections are capped; truncated results are explicitly flagged.
+Meta-kernels are never furnished or loaded. The worker does not call `furnsh`, so a user-supplied meta-kernel cannot cause CSPICE to follow arbitrary local paths. Text-kernel variables, CK inventory/coverage, and full segment-level summaries are not yet extracted. Output collections are capped; truncated results are explicitly flagged.
 
 ## Explicit trust boundary
 
-The artifact record uses \`checksum_status=matches_user_declared\`. This means only that ORBITOPS computed a digest over the uploaded bytes and it equals the value previously declared by the user. It does not establish who published the bytes, whether the source URL is authentic, whether the declared checksum came from a trusted independent channel, or whether the licence/terms are valid. The API does not download from arbitrary URLs, follow redirects, or perform remote network acquisition.
+The artifact record uses `checksum_status=matches_user_declared`. This means only that ORBITOPS computed a digest over the uploaded bytes and it equals the value previously declared by the user. It does not establish who published the bytes, whether the source URL is authentic, whether the declared checksum came from a trusted independent channel, or whether the licence/terms are valid. The API does not download from arbitrary URLs, follow redirects, or perform remote network acquisition.
 
 CSPICE successfully identifying a file and extracting index metadata is a structural inspection result, not a scientific validation. Coverage, frames, time-system, and target declarations are not independently compared with authoritative mission requirements. No ephemeris evaluation, frame transformation, trajectory propagation, uncertainty analysis, or mission prediction is implemented by this increment.
 
