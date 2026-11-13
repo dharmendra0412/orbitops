@@ -11,6 +11,7 @@ from app.ephemeris.kernels import (
     SpiceKernelInspectionRecord,
     SpiceKernelRecord,
     SpiceKernelRegistration,
+    SpiceTimeConversionRecord,
 )
 from app.storage.manifests import ManifestStore
 
@@ -40,6 +41,15 @@ class SpiceKernelStore:
                     payload_json TEXT NOT NULL,
                     acquired_at TEXT NOT NULL,
                     FOREIGN KEY(kernel_id) REFERENCES spice_kernel_registrations(kernel_id)
+                )
+            """)
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS spice_time_conversions (
+                    conversion_id TEXT PRIMARY KEY,
+                    kernel_id TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    converted_at TEXT NOT NULL,
+                    FOREIGN KEY(kernel_id) REFERENCES spice_kernel_inspections(kernel_id)
                 )
             """)
             connection.execute("""
@@ -137,3 +147,43 @@ class SpiceKernelStore:
                 (kernel_id,),
             ).fetchone()
         return SpiceKernelInspectionRecord.model_validate_json(row["payload_json"]) if row else None
+
+    def create_time_conversion(
+        self, conversion: SpiceTimeConversionRecord
+    ) -> SpiceTimeConversionRecord:
+        payload = json.dumps(
+            conversion.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+        )
+        with self._connection() as connection:
+            connection.execute(
+                """INSERT INTO spice_time_conversions
+                   (conversion_id, kernel_id, payload_json, converted_at)
+                   VALUES (?, ?, ?, ?)""",
+                (
+                    conversion.conversion_id,
+                    conversion.kernel_id,
+                    payload,
+                    conversion.converted_at.isoformat(),
+                ),
+            )
+        return conversion
+
+    def get_time_conversion(self, conversion_id: str) -> SpiceTimeConversionRecord | None:
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT payload_json FROM spice_time_conversions WHERE conversion_id = ?",
+                (conversion_id,),
+            ).fetchone()
+        return SpiceTimeConversionRecord.model_validate_json(row["payload_json"]) if row else None
+
+    def list_time_conversions(
+        self, kernel_id: str, limit: int = 50, offset: int = 0
+    ) -> list[SpiceTimeConversionRecord]:
+        with self._connection() as connection:
+            rows = connection.execute(
+                """SELECT payload_json FROM spice_time_conversions
+                   WHERE kernel_id = ? ORDER BY converted_at DESC, conversion_id ASC
+                   LIMIT ? OFFSET ?""",
+                (kernel_id, limit, offset),
+            ).fetchall()
+        return [SpiceTimeConversionRecord.model_validate_json(row["payload_json"]) for row in rows]
