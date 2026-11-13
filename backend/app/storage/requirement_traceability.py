@@ -242,6 +242,9 @@ class RequirementTraceabilityStore:
         rows = []
         for requirement in mission_draft.requirements:
             allocations = allocations_by_requirement.get(requirement.requirement_id, [])
+            active_component_ids = {
+                item.component_id for item in allocations if item.component_id in current_components
+            }
             stale_ids = sorted(
                 {item.component_id for item in allocations if item.component_id not in current_components}
             )
@@ -254,12 +257,10 @@ class RequirementTraceabilityStore:
                     requirement_statement=requirement.statement,
                     requirement_category=requirement.category.value,
                     verification_method=requirement.verification_method.value,
-                    allocated=bool(allocations),
+                    allocated=bool(active_component_ids),
                     allocation_count=len(allocations),
                     allocations=allocations,
-                    active_component_count=len(
-                        {item.component_id for item in allocations if item.component_id in current_components}
-                    ),
+                    active_component_count=len(active_component_ids),
                     stale_component_ids=stale_ids,
                     verification_record_count=total_evidence,
                     pass_record_count=evidence.get(VerificationOutcome.PASS.value, 0),
