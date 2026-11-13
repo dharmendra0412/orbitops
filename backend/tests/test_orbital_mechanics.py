@@ -143,6 +143,85 @@ def test_hohmann_transfer_produces_positive_burns_and_transfer_time(tmp_path) ->
         clear_overrides()
 
 
+def test_earth_de440_reference_case_regression_values(tmp_path) -> None:
+    """Freeze numerical regression values using JPL DE440 Earth GM."""
+    configured_store(tmp_path)
+    reference_mu = 398600.435507e9  # m^3/s^2; JPL DE440 value converted from km^3/s^2.
+    initial_radius = 7_000_000.0
+    target_radius = 42_164_000.0
+    transfer_axis = (initial_radius + target_radius) / 2.0
+    try:
+        circular = client.post(
+            "/api/v1/models/orbital-mechanics/circular-orbit",
+            json={
+                "gravitational_parameter": quantity(
+                    "mu-de440-circular", "Earth GM (JPL DE440)", reference_mu,
+                    "m^3/s^2", "gravitational_parameter",
+                ),
+                "orbital_radius": radius_input("r-de440-circular", "Orbit radius", initial_radius),
+                "intended_use": "Fixed numerical regression case only.",
+            },
+        )
+        vis_viva = client.post(
+            "/api/v1/models/orbital-mechanics/vis-viva",
+            json={
+                "gravitational_parameter": quantity(
+                    "mu-de440-vis", "Earth GM (JPL DE440)", reference_mu,
+                    "m^3/s^2", "gravitational_parameter",
+                ),
+                "orbital_radius": radius_input("r-de440-vis", "Transfer periapsis radius", initial_radius),
+                "semi_major_axis": radius_input("a-de440-vis", "Transfer semi-major axis", transfer_axis),
+                "intended_use": "Fixed numerical regression case only.",
+            },
+        )
+        period = client.post(
+            "/api/v1/models/orbital-mechanics/orbital-period",
+            json={
+                "gravitational_parameter": quantity(
+                    "mu-de440-period", "Earth GM (JPL DE440)", reference_mu,
+                    "m^3/s^2", "gravitational_parameter",
+                ),
+                "semi_major_axis": radius_input("a-de440-period", "Semi-major axis", initial_radius),
+                "intended_use": "Fixed numerical regression case only.",
+            },
+        )
+        escape = client.post(
+            "/api/v1/models/orbital-mechanics/escape-velocity",
+            json={
+                "gravitational_parameter": quantity(
+                    "mu-de440-escape", "Earth GM (JPL DE440)", reference_mu,
+                    "m^3/s^2", "gravitational_parameter",
+                ),
+                "orbital_radius": radius_input("r-de440-escape", "Orbit radius", initial_radius),
+                "intended_use": "Fixed numerical regression case only.",
+            },
+        )
+        hohmann = client.post(
+            "/api/v1/models/orbital-mechanics/hohmann-transfer",
+            json={
+                "gravitational_parameter": quantity(
+                    "mu-de440-hohmann", "Earth GM (JPL DE440)", reference_mu,
+                    "m^3/s^2", "gravitational_parameter",
+                ),
+                "initial_orbit_radius": radius_input("r1-de440-hohmann", "Initial orbit radius", initial_radius),
+                "target_orbit_radius": radius_input("r2-de440-hohmann", "Target orbit radius", target_radius),
+                "intended_use": "Fixed numerical regression case only.",
+            },
+        )
+        assert all(response.status_code == 200 for response in (circular, vis_viva, period, escape, hohmann))
+        assert math.isclose(circular.json()["output"]["value"], 7546.053230539979, rel_tol=1e-10)
+        assert math.isclose(vis_viva.json()["output"]["value"], 9882.84899447982, rel_tol=1e-10)
+        assert math.isclose(period.json()["output"]["value"], 5828.516683695568, rel_tol=1e-10)
+        assert math.isclose(escape.json()["output"]["value"], 10671.730821018946, rel_tol=1e-10)
+        transfer = hohmann.json()
+        assert math.isclose(transfer["first_burn_delta_v"]["value"], 2336.795763939841, rel_tol=1e-10)
+        assert math.isclose(transfer["second_burn_delta_v"]["value"], 1433.9314395986582, rel_tol=1e-10)
+        assert math.isclose(transfer["transfer_delta_v"]["value"], 3770.7272035384995, rel_tol=1e-10)
+        assert math.isclose(transfer["transfer_time"]["value"], 19178.154357098887, rel_tol=1e-10)
+    finally:
+        clear_overrides()
+
+
 def test_orbital_mechanics_rejects_wrong_gravitational_parameter_dimension(tmp_path) -> None:
     configured_store(tmp_path)
     try:
