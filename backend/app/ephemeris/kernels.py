@@ -100,3 +100,30 @@ class SpiceKernelArtifactRecord(BaseModel):
         "A matching user-declared digest does not independently authenticate the source or publisher.",
         "The artifact has not been parsed, furnished, or scientifically validated by a SPICE toolkit.",
     ])
+
+
+class SpiceKernelInspectionRecord(BaseModel):
+    """Immutable result of bounded CSPICE format and index inspection."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kernel_id: str
+    artifact_sha256: str
+    toolkit_name: str = "SpiceyPy"
+    toolkit_version: str
+    detected_architecture: str
+    detected_kernel_type: str
+    registration_type_matches: bool = True
+    object_ids: list[int] = Field(default_factory=list)
+    coverage_intervals: list[dict[str, object]] = Field(default_factory=list)
+    metadata_truncated: bool = False
+    inspection_scope: str
+    inspected_at: datetime
+    inspection_status: str = "format_and_supported_index_inspected"
+    limitations: list[str] = Field(default_factory=lambda: [
+        "Inspection used CSPICE through a time-limited subprocess with best-effort POSIX resource limits; this is not a complete OS security sandbox.",
+        "Only the kernel header and supported SPK, binary PCK, and DSK index metadata were inspected; text-kernel variables and meta-kernel paths were not loaded.",
+        "SPK coverage intervals are reported as raw ET seconds past J2000 TDB; no time conversion was performed.",
+        "Inspection does not authenticate the publisher, validate licence terms, or establish scientific suitability.",
+        "The result is not independent scientific verification or mission acceptance evidence.",
+    ])
