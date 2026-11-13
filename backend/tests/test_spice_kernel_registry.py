@@ -3,6 +3,7 @@ import hashlib
 from fastapi.testclient import TestClient
 
 import app.ephemeris.routes as spice_routes
+import spiceypy as spice
 from app.ephemeris.routes import get_spice_kernel_store
 from app.main import app
 from app.storage.spice_kernels import SpiceKernelStore
@@ -221,5 +222,87 @@ def test_artifact_upload_rejects_empty_file(tmp_path, monkeypatch):
         )
         assert response.status_code == 422
         assert client.get("/api/v1/ephemeris/spice/kernels/naif0012.tls/artifact").status_code == 404
+    finally:
+        clear_overrides()
+
+
+def create_test_spk(path):
+    handle = spice.spkopn(str(path), "ORBITOPS REGRESSION SPK", 0)
+    try:
+        spice.spkw08(
+            handle,
+            399,
+            0,
+            "J2000",
+            0.0,
+            20.0,
+            "ORBITOPS TEST SEGMENT",
+            1,
+            3,
+            [
+                [7000.0, 0.0, 0.0, 0.0, 7.5, 0.0],
+                [7000.0, 75.0, 0.0, 0.0, 7.5, 0.0],
+                [7000.0, 150.0, 0.0, 0.0, 7.5, 0.0],
+            ],
+            0.0,
+            10.0,
+        )
+    finally:
+        spice.spkcls(handle)
+    return path.read_bytes()
+
+
+def test_spk_inspection_detects_format_objects_and_et_coverage(tmp_path, monkeypatch):
+    configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", tmp_path / "artifacts")
+    spk_path = tmp_path / "test.bsp"
+    content = create_test_spk(spk_path)
+    registration = payload("test-spk")
+    registration["file_name"] = "test.bsp"
+    registration["kernel_type"] = "SPK"
+    registration["sha256"] = hashlib.sha256(content).hexdigest()
+    try:
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=registration).status_code == 201
+        uploaded = client.post(
+            "/api/v1/ephemeris/spice/kernels/test-spk/artifact",
+            files={"upload": ("test.bsp", content, "application/octet-stream")},
+        )
+        assert uploaded.status_code == 201
+
+        inspected = client.post("/api/v1/ephemeris/spice/kernels/test-spk/inspection")
+        assert inspected.status_code == 201, inspected.text
+        body = inspected.json()
+        assert body["detected_architecture"] == "DAF"
+        assert body["detected_kernel_type"] == "SPK"
+        assert body["registration_type_matches"] is True
+        assert body["object_ids"] == [399]
+        assert body["coverage_intervals"][0]["object_id"] == 399
+        assert body["coverage_intervals"][0]["intervals"][0]["start_et_seconds"] == 0.0
+        assert body["coverage_intervals"][0]["intervals"][0]["end_et_seconds"] == 20.0
+        assert body["toolkit_version"] == "8.4.0"
+        assert client.get("/api/v1/ephemeris/spice/kernels/test-spk/inspection").status_code == 200
+        assert client.post("/api/v1/ephemeris/spice/kernels/test-spk/inspection").status_code == 409
+    finally:
+        clear_overrides()
+
+
+def test_spk_inspection_rejects_registered_type_mismatch(tmp_path, monkeypatch):
+    configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", tmp_path / "artifacts")
+    spk_path = tmp_path / "test.bsp"
+    content = create_test_spk(spk_path)
+    registration = payload("wrong-type")
+    registration["file_name"] = "test.bsp"
+    registration["kernel_type"] = "PCK"
+    registration["sha256"] = hashlib.sha256(content).hexdigest()
+    try:
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=registration).status_code == 201
+        assert client.post(
+            "/api/v1/ephemeris/spice/kernels/wrong-type/artifact",
+            files={"upload": ("test.bsp", content, "application/octet-stream")},
+        ).status_code == 201
+        inspected = client.post("/api/v1/ephemeris/spice/kernels/wrong-type/inspection")
+        assert inspected.status_code == 422
+        assert client.get("/api/v1/ephemeris/spice/kernels/wrong-type/inspection").status_code == 404
     finally:
         clear_overrides()
