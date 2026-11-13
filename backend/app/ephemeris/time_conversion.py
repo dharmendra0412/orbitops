@@ -1,5 +1,5 @@
 """Controlled UTC-to-ET conversion using an acquired and inspected LSK artifact."""
-import hashlib
+import hashlib  # noqa: I001
 import json
 import os
 import subprocess
