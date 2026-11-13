@@ -1,4 +1,8 @@
-import hashlib\n\nfrom fastapi.testclient import TestClient\n\nimport app.ephemeris.routes as spice_routes
+import hashlib
+
+from fastapi.testclient import TestClient
+
+import app.ephemeris.routes as spice_routes
 
 from app.ephemeris.routes import get_spice_kernel_store
 from app.main import app
