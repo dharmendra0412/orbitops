@@ -31,6 +31,16 @@ Configure the storage root with `SPICE_KERNEL_STORAGE_PATH`; the default is `dat
 - `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection` — inspect an acquired artifact once and append an immutable inspection record.
 - `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection` — retrieve that inspection record.
 
+## LSK time conversion API
+
+- `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/time-conversions` — convert one explicitly UTC-tagged input using the selected LSK.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/time-conversions` — list immutable conversion records (paginated).
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/time-conversions/{conversion_id}` — retrieve one conversion record.
+
+The request body contains `utc_time`, which must end in an explicit ` UTC` suffix. Conversion is rejected unless the registration is an LSK, an artifact has been acquired, and the inspection record confirms a `KPL/LSK` text kernel. The service re-computes the artifact SHA-256 immediately before invoking a dedicated worker. That worker re-checks the kernel architecture/type, furnishes only the selected LSK (never a meta-kernel or arbitrary kernel set), calls CSPICE `str2et`, and formats the result with `et2utc`. It runs with a 12-second timeout and best-effort POSIX resource limits. Each immutable result records the input UTC, ET seconds past J2000 TDB, normalized UTC, exact artifact digest, toolkit version, and conversion timestamp. Conversion history is append-only and queryable by conversion ID.
+
+This is a bounded single-LSK time conversion, not an ephemeris query or frame transformation. Correctness depends on the leap-second table and time constants in the exact LSK; the record warns that an LSK may be stale outside its supported date range. The worker's process limits are not a complete OS sandbox.
+
 The optional backend dependency is pinned to `spiceypy==8.4.0` (NAIF CSPICE wrapper). CI installs the `spice` extra so the same toolkit version is exercised in automated tests.
 
 Before parsing, ORBITOPS re-computes the stored artifact SHA-256 and rejects missing, changed, or path-escaped files. It invokes a child Python process with a 12-second wall-clock timeout. On POSIX, the worker applies CPU, address-space, file-size, open-file, and core-dump resource limits. This is process separation with best-effort resource limits, not a complete operating-system sandbox; production deployment still requires a hardened isolated worker/container with no network access and strict filesystem permissions.
@@ -52,7 +62,7 @@ Authentication and per-user/team authorization are not implemented in the curren
 1. Add independent trusted-digest provenance (for example, separately captured NAIF release manifest/signature evidence where available).
 2. Harden worker isolation at deployment level and add a reproducible worker image/build manifest.
 3. Expand bounded metadata inspection to CK, text-kernel variables, and segment-level summaries with explicit resource ceilings.
-4. Expand the frozen NAIF LSK regression into bounded, provenance-captured time-conversion operations; then add frame-transformation tests using authoritative NAIF reference vectors and a reviewed kernel set.
+4. Add frame-transformation tests using authoritative NAIF reference vectors and a reviewed kernel set, then build bounded transformations with captured frame and kernel provenance.
 5. Only then expose bounded ephemeris queries with provenance, input/output frames, time scales, and kernel set captured in immutable run records.
 
 ## Independent NAIF time-reference regression
