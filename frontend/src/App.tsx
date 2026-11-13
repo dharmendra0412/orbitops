@@ -777,7 +777,7 @@ export default function App() {
 
   async function inspectPDS4Label() {
     if (!pds4File) return;
-    if (!/\\.(xml|lbl)$/i.test(pds4File.name)) {
+    if (!/\.(xml|lbl)$/i.test(pds4File.name)) {
       setPds4Error("Choose a PDS4 XML label with a .xml or .lbl extension.");
       setPds4State("error");
       return;
