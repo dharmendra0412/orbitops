@@ -1,11 +1,11 @@
 # ORBITOPS Engineering Status
 
-**Snapshot date:** 2026-11-12  
-**Branch:** engineering-grade-foundation  
+**Snapshot date:** 2026-11-13  
+**Branch:** feature/spacecraft-configuration  
 **Product scope:** Multi-planetary mission engineering foundation  
-**Status:** Multi-planetary taxonomy and engineering foundation implemented; planetary mission analysis is not complete.
+**Status:** Mission workspaces, verification evidence capture, and initial spacecraft configuration/budget services implemented; engineering acceptance remains pending.
 
-## Implemented and CI-verified
+## Implemented
 
 - FastAPI + React/TypeScript/Vite application foundation.
 - Engineering value contracts with units, dimensional checks, provenance classes,
@@ -20,9 +20,22 @@
   GET /api/v1/missions/catalog.
 - Persistent mission project workspaces with typed requirements, immutable numbered revisions, retrieval and pagination.
 - Append-only requirement verification evidence registry linked to requirements in the latest project revision, with verification-method consistency checks.
-- Frontend form for defining an initial science requirement and recording/listing its verification evidence.
-- Frontend controls for dataset checksum inspection, propulsion delta-v, power
-  balance and recent model-run retrieval.
+- Spacecraft component contracts with subsystem classification and provenance-aware mass/power values.
+- Append-only spacecraft configuration revisions associated with a mission project.
+- Transparent component mass totals, user-declared percentage mass margin, and average power generation/load totals using explicit duty-cycle inputs.
+- Backend tests covering configuration persistence, revision history, dimensional rejection, duplicate component identifiers and budget arithmetic.
+- Frontend controls for mission projects, verification evidence, dataset checksum inspection, propulsion delta-v, power balance and recent model-run retrieval.
+
+## Spacecraft configuration API
+
+- POST /api/v1/missions/projects/{project_id}/spacecraft/configuration — create the initial spacecraft configuration.
+- GET /api/v1/missions/projects/{project_id}/spacecraft/configuration — retrieve the latest configuration revision.
+- POST /api/v1/missions/projects/{project_id}/spacecraft/configuration/revisions — append a new immutable revision.
+- GET /api/v1/missions/projects/{project_id}/spacecraft/budgets — calculate the latest revision's mass and average-power bookkeeping.
+
+Component mass must be represented in kg and power draw/generation in W using the existing EngineeringValue contract. Every value therefore carries provenance, credibility, intended-use and limitations metadata. Component IDs are unique within a revision. Mass margin is a user-entered percentage; no default hardware mass is invented. Power duty cycles are user-entered fractions between zero and one.
+
+The budget endpoint is arithmetic bookkeeping, not a spacecraft simulation or design approval. It does not model battery state of charge, eclipse periods, transient loads, conversion losses, degradation, thermal coupling, harness losses, uncertainty or subsystem interactions. A positive net average power value does not establish power-system adequacy.
 
 ## Current model credibility
 
@@ -31,9 +44,12 @@ prototypes explicitly marked UNVALIDATED. The planetary destination
 catalogue marks all mission compatibility as not_assessed. No numerical
 planetary environment data or mission feasibility is claimed.
 
+Spacecraft component values inherit their own provenance and credibility fields, but the configuration service does not independently authenticate vendor data or assess component suitability. User-supplied values are not verified merely because they pass schema validation.
+
 ## Not implemented
 
-- Mission lifecycle state transitions, requirement-to-subsystem traceability, controlled approvals and independent verification/validation acceptance.
+- Requirement-to-component traceability links and formal verification closure.
+- Mission lifecycle state transitions, controlled approvals and independent verification/validation acceptance.
 - NASA/PDS product download, label parsing, decoding, coordinate/time transformations.
 - Curated body-specific ephemerides, gravity, atmosphere, radiation, terrain and thermal datasets.
 - Interplanetary trajectory propagation, launch/arrival windows, orbit insertion and transfer design.
@@ -46,9 +62,9 @@ planetary environment data or mission feasibility is claimed.
 
 Verification evidence records are append-only and reference a requirement in the latest project revision. The API checks that the recorded method matches the requirement's declared verification method (unless it is still TBD). Outcomes are evidence entries only: a `pass` does not constitute independent acceptance, formal verification closure, safety approval or flight qualification. Evidence references are user-supplied strings and are not fetched or authenticated.
 
-## Mission project workspace status
+## Mission project and persistence boundaries
 
-The first project API records a mission objective and structured requirements, then preserves each revision as an append-only snapshot. This is a project-definition foundation only. It does not yet implement mission execution, spacecraft configuration, team authorization, or technical feasibility checks. The SQLite persistence layer is intended for local development and early testing; production multi-user deployment requires authenticated access, authorization policies, migrations, backup/recovery and concurrency testing.
+Mission projects preserve user-authored objectives and structured requirements as immutable revisions. Spacecraft configuration records are linked to a mission project and preserve each submitted component set as an immutable revision. These services do not establish technical feasibility, subsystem compliance, or flight readiness. SQLite is intended for local development and early testing; production multi-user deployment requires authenticated access, authorization policies, migrations, backup/recovery and concurrency testing.
 
 ## Destination scope
 
