@@ -141,6 +141,8 @@ class SpacecraftConfigurationStore:
         self, project_id: UUID, draft: SpacecraftConfigurationDraft
     ) -> SpacecraftConfigurationRecord:
         with self._connection() as connection:
+            # Serialize the revision read/increment/write sequence across requests.
+            connection.execute("BEGIN IMMEDIATE")
             configuration = connection.execute(
                 "SELECT * FROM spacecraft_configurations WHERE project_id = ?", (str(project_id),)
             ).fetchone()
