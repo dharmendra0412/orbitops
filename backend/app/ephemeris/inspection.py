@@ -1,20 +1,17 @@
 """Controlled invocation of the SPICE metadata inspection subprocess."""
-import hashlib  # noqa: I001
 import json
 import os
-import stat
 import subprocess
 import sys
-import tempfile
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
+from app.ephemeris.artifact_snapshot import ArtifactSnapshotError, verified_artifact_snapshot
 from app.ephemeris.kernels import SpiceKernelInspectionRecord
 
 
 MAX_INSPECTION_SECONDS = 12
-HASH_CHUNK_BYTES = 1024 * 1024
 MAX_INSPECTION_ARTIFACT_BYTES = 1024 * 1024 * 1024
 
 
@@ -29,12 +26,7 @@ def inspect_artifact(
     expected_sha256: str,
     storage_root: Path,
 ) -> SpiceKernelInspectionRecord:
-    """Hash a no-follow source descriptor and inspect a private immutable snapshot.
-
-    The worker never opens the mutable content-addressed path. Bytes are copied
-    from one opened regular-file descriptor into a private temporary directory
-    while hashing; CSPICE then inspects that exact verified snapshot.
-    """
+    """Inspect a private immutable snapshot of the acquired kernel artifact."""
     root = storage_root.resolve()
     artifact_path = root / "sha256" / expected_sha256[:2] / expected_sha256
     if artifact_path.is_symlink():
@@ -48,40 +40,15 @@ def inspect_artifact(
     if not resolved_path.is_relative_to(root):
         raise SpiceInspectionError("Kernel artifact path is outside the configured storage root")
 
-    source_fd = None
+    worker_path = Path(__file__).with_name("inspect_worker.py")
+    backend_root = Path(__file__).resolve().parents[2]
     try:
-        source_flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-        source_fd = os.open(resolved_path, source_flags)
-        if not stat.S_ISREG(os.fstat(source_fd).st_mode):
-            raise SpiceInspectionError("Content-addressed artifact must be a regular file")
-
-        with tempfile.TemporaryDirectory(prefix="orbitops-spice-inspect-") as temporary_dir:
-            snapshot_path = Path(temporary_dir) / "kernel-artifact"
-            digest = hashlib.sha256()
-            size_bytes = 0
-            with os.fdopen(source_fd, "rb") as source_file:
-                source_fd = None
-                with snapshot_path.open("xb") as snapshot:
-                    while chunk := source_file.read(HASH_CHUNK_BYTES):
-                        size_bytes += len(chunk)
-                        if size_bytes > MAX_INSPECTION_ARTIFACT_BYTES:
-                            raise SpiceInspectionError(
-                                "Kernel artifact exceeds the inspection size limit"
-                            )
-                        digest.update(chunk)
-                        snapshot.write(chunk)
-                    snapshot.flush()
-                    os.fsync(snapshot.fileno())
-
-            actual_sha256 = digest.hexdigest()
-            if actual_sha256 != expected_sha256:
-                raise SpiceInspectionError(
-                    "Stored kernel artifact no longer matches its recorded SHA-256"
-                )
-
-            snapshot_path.chmod(0o400)
-            worker_path = Path(__file__).with_name("inspect_worker.py")
-            backend_root = Path(__file__).resolve().parents[2]
+        with verified_artifact_snapshot(
+            resolved_path,
+            expected_sha256=expected_sha256,
+            max_bytes=MAX_INSPECTION_ARTIFACT_BYTES,
+            artifact_label="kernel",
+        ) as (snapshot_path, actual_sha256):
             try:
                 completed = subprocess.run(
                     [sys.executable, "-I", str(worker_path), str(snapshot_path), expected_type],
@@ -136,10 +103,26 @@ def inspect_artifact(
                 raise SpiceInspectionError(
                     "SPICE inspection worker returned an invalid result"
                 ) from error
+    except ArtifactSnapshotError as error:
+        message = str(error)
+        if "regular file" in message:
+            raise SpiceInspectionError(
+                "Content-addressed artifact must be a regular file"
+            ) from error
+        if "exceeds the" in message:
+            raise SpiceInspectionError(
+                "Kernel artifact exceeds the inspection size limit"
+            ) from error
+        if "no longer matches" in message:
+            raise SpiceInspectionError(
+                "Stored kernel artifact no longer matches its recorded SHA-256"
+            ) from error
+        raise SpiceInspectionError(
+            "Unable to safely open or snapshot the kernel artifact"
+        ) from error
     except SpiceInspectionError:
         raise
     except OSError as error:
-        raise SpiceInspectionError("Unable to safely open or snapshot the kernel artifact") from error
-    finally:
-        if source_fd is not None:
-            os.close(source_fd)
+        raise SpiceInspectionError(
+            "Unable to safely open or snapshot the kernel artifact"
+        ) from error
