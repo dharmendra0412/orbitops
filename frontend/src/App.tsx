@@ -5,6 +5,10 @@ type ApiStatus = "checking" | "online" | "offline";
 type UploadState = "idle" | "uploading" | "success" | "error";
 type UploadResult = { file_name: string; media_type: string; file_size_bytes: number; checksum_sha256: string; storage_status: string };
 type ModelState = "idle" | "calculating" | "success" | "error";
+type MissionRequirement = { requirement_id: string; title: string; statement: string; category: string; verification_method: string; acceptance_criteria: string; source_reference?: string };
+type MissionProjectDraft = { name: string; summary: string; target_body: string; mission_archetype: string; primary_objective: string; intended_users: string[]; requirements: MissionRequirement[] };
+type MissionProjectSummary = { project_id: string; name: string; target_body: string; mission_archetype: string; latest_revision: number; updated_at: string };
+type MissionProjectRecord = { project_id: string; name: string; target_body: string; mission_archetype: string; latest_revision: number; revision: { revision_number: number; draft: MissionProjectDraft } };
 type MissionCatalog = {
   scope: string;
   destinations: { planet_id: string; display_name: string; planetary_class: string; feasibility_status: string }[];
@@ -96,6 +100,12 @@ export default function App() {
   const [missionCatalog, setMissionCatalog] = useState<MissionCatalog | null>(null);
   const [selectedPlanet, setSelectedPlanet] = useState("mars");
   const [selectedArchetype, setSelectedArchetype] = useState("orbiter");
+  const [missionProjects, setMissionProjects] = useState<MissionProjectSummary[]>([]);
+  const [projectName, setProjectName] = useState("Lunar polar lander concept");
+  const [projectObjective, setProjectObjective] = useState("Characterize selected surface and subsurface properties at a candidate lunar polar site.");
+  const [projectState, setProjectState] = useState<ModelState>("idle");
+  const [projectError, setProjectError] = useState("");
+  const [selectedProject, setSelectedProject] = useState<MissionProjectRecord | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -113,6 +123,7 @@ export default function App() {
   useEffect(() => {
     if (apiStatus === "online") {
       void refreshRecentRuns();
+      void refreshMissionProjects();
       fetch(apiBase + "/api/v1/missions/catalog")
         .then((response) => {
           if (!response.ok) throw new Error("Mission catalogue unavailable");
@@ -126,6 +137,58 @@ export default function App() {
         .catch(() => setMissionCatalog(null));
     }
   }, [apiStatus]);
+
+  async function refreshMissionProjects() {
+    try {
+      const response = await fetch(apiBase + "/api/v1/missions/projects?limit=20");
+      if (!response.ok) return;
+      setMissionProjects(await response.json() as MissionProjectSummary[]);
+    } catch { /* Project list is refreshed on the next API interaction. */ }
+  }
+
+  async function createMissionProject() {
+    if (projectName.trim().length < 3 || projectObjective.trim().length < 10) {
+      setProjectError("Enter a mission name (at least 3 characters) and objective (at least 10 characters).");
+      setProjectState("error");
+      return;
+    }
+    const payload: MissionProjectDraft = {
+      name: projectName.trim(),
+      summary: "Preliminary mission definition created in ORBITOPS.",
+      target_body: selectedPlanet === "moon" ? "Moon" : (missionCatalog?.destinations.find((item) => item.planet_id === selectedPlanet)?.display_name ?? selectedPlanet),
+      mission_archetype: selectedArchetype,
+      primary_objective: projectObjective.trim(),
+      intended_users: ["students", "researchers", "engineers"],
+      requirements: [],
+    };
+    setProjectState("calculating");
+    setProjectError("");
+    try {
+      const response = await fetch(apiBase + "/api/v1/missions/projects", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Mission project creation failed");
+      setSelectedProject(result as MissionProjectRecord);
+      setProjectState("success");
+      await refreshMissionProjects();
+    } catch (error) {
+      setProjectError(error instanceof Error ? error.message : "Unexpected mission project error");
+      setProjectState("error");
+    }
+  }
+
+  async function openMissionProject(projectId: string) {
+    try {
+      const response = await fetch(apiBase + "/api/v1/missions/projects/" + projectId);
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to load mission project");
+      setSelectedProject(result as MissionProjectRecord);
+    } catch (error) {
+      setProjectError(error instanceof Error ? error.message : "Unable to load mission project");
+      setProjectState("error");
+    }
+  }
 
   async function refreshRecentRuns() {
     try {
@@ -317,6 +380,55 @@ export default function App() {
         ) : (
           <p className="run-empty">Connect the API to load the planetary mission catalogue.</p>
         )}
+      </section>
+
+      <section className="model-panel mission-catalog-panel">
+        <div className="ingestion-heading">
+          <span className="card-icon"><Layers3 size={20} /></span>
+          <div><div className="eyebrow">MISSION WORKSPACE · PERSISTENT PROJECTS</div><h2>Create a mission project</h2></div>
+        </div>
+        <p className="ingestion-copy">Record a mission objective and its current assumptions. Each saved definition becomes an immutable numbered revision. Project creation does not certify feasibility.</p>
+        <div className="model-form">
+          <label className="model-field">Project name
+            <input value={projectName} onChange={(event) => setProjectName(event.target.value)} maxLength={160} />
+          </label>
+          <label className="model-field">Target body
+            <select value={selectedPlanet} onChange={(event) => setSelectedPlanet(event.target.value)}>
+              <option value="moon">Moon</option>
+              {missionCatalog?.destinations.map((body) => <option key={body.planet_id} value={body.planet_id}>{body.display_name}</option>)}
+            </select>
+          </label>
+          <label className="model-field">Mission archetype
+            <select value={selectedArchetype} onChange={(event) => setSelectedArchetype(event.target.value)}>
+              {missionCatalog?.mission_archetypes.map((item) => <option key={item.archetype} value={item.archetype}>{item.display_name}</option>)}
+            </select>
+          </label>
+        </div>
+        <label className="model-field">Primary mission objective
+          <textarea value={projectObjective} onChange={(event) => setProjectObjective(event.target.value)} rows={3} maxLength={4000} />
+        </label>
+        <button className="inspect-button model-button" type="button" onClick={createMissionProject} disabled={apiStatus !== "online" || projectState === "calculating"}>
+          {projectState === "calculating" ? <LoaderCircle size={16} className="spin" /> : <Layers3 size={16} />}
+          {projectState === "calculating" ? "Creating project..." : "Create mission project"}
+        </button>
+        {projectError && <p className="inline-error">{projectError}</p>}
+        {projectState === "success" && selectedProject && <p className="inline-warning">Project saved · Revision {selectedProject.latest_revision} · Feasibility not assessed.</p>}
+        <div className="model-assumptions">
+          <strong>Saved mission projects ({missionProjects.length})</strong>
+          {missionProjects.length === 0 ? <p className="run-empty">No mission projects created yet.</p> : (
+            <div className="run-list">
+              {missionProjects.map((project) => <div className="run-row" key={project.project_id}>
+                <div className="run-row-main"><strong>{project.name}</strong><span>{project.target_body} · {project.mission_archetype} · Revision {project.latest_revision}</span></div>
+                <button className="planet-chip" type="button" onClick={() => openMissionProject(project.project_id)}>Open project</button>
+              </div>)}
+            </div>
+          )}
+        </div>
+        {selectedProject && <div className="catalog-selection">
+          <strong>{selectedProject.name} · Revision {selectedProject.latest_revision}</strong>
+          <span>{selectedProject.revision.draft.primary_objective}</span>
+          <small>{selectedProject.target_body} · {selectedProject.mission_archetype} · Project definition only</small>
+        </div>}
       </section>
 
       <section className="ingestion-panel">
