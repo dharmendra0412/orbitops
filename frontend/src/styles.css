@@ -110,3 +110,99 @@ footer { margin-top: auto; min-height: 66px; border-top: 1px solid var(--line); 
 .requirement-editor .model-form { margin: 8px 0 2px; }
 .requirement-editor .model-field input { font-family: "Manrope", sans-serif; }
 .requirement-editor .run-row-main small { color: #91a5ba; font-size: 10px; line-height: 1.5; }
+
+
+/* ORBITOPS light aerospace product shell */
+:root { color:#172b4d; background:#f4f7fb; --muted:#66758b; --line:#dce5ef; --cyan:#1769aa; color-scheme:light; }
+html { scroll-behavior:smooth; scroll-padding-top:100px; }
+body { color:#172b4d; background:#f4f7fb; }
+.shell { width:min(1320px,calc(100% - 56px)); }
+.topbar { position:sticky; top:0; z-index:20; height:76px; background:rgba(255,255,255,.94); backdrop-filter:blur(16px); border-bottom:1px solid #dce5ef; gap:24px; }
+.brand { color:#173454; letter-spacing:.08em; }
+.brand-mark { color:#1769aa; border-color:#c5d9ec; background:#edf5fc; }
+.brand-accent { color:#1769aa; }
+.topbar-nav { display:flex; align-items:center; justify-content:center; gap:clamp(12px,2vw,28px); margin-left:auto; }
+.topbar-nav a { color:#5d6d82; font-size:12px; font-weight:700; transition:color .18s ease; }
+.topbar-nav a:hover { color:#1769aa; }
+.environment-label { color:#8290a3; }
+.api-indicator { color:#64748b; }
+.status-dot { background:#d49a36; }
+.hero { max-width:940px; padding:86px 0 64px; }
+.eyebrow { color:#1769aa; }
+h1 { color:#132b49; font-size:clamp(42px,6vw,72px); }
+h1 span { color:#52718f; }
+.hero-copy { color:#5d6d82; font-size:16px; }
+.hero-meta { color:#42546b; }
+.hero-meta svg { color:#1769aa; }
+.hero-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:30px; }
+.hero-primary,.hero-secondary { display:inline-flex; min-height:46px; align-items:center; justify-content:center; gap:10px; border-radius:9px; padding:0 17px; font-size:12px; font-weight:800; transition:transform .18s ease,box-shadow .18s ease; }
+.hero-primary { color:#fff; background:#1769aa; box-shadow:0 8px 18px rgba(23,105,170,.16); }
+.hero-primary:hover { transform:translateY(-1px); box-shadow:0 10px 22px rgba(23,105,170,.22); }
+.hero-secondary { color:#285273; border:1px solid #cbd9e7; background:#fff; }
+.workspace-disclaimer { color:#8794a6; font:10px "DM Mono",monospace; margin:16px 0 0; }
+.section-heading,h2 { color:#1c3554; }
+.section-heading { scroll-margin-top:100px; }
+.stage-pill { color:#52657c; border-color:#d6e0ea; background:#fff; }
+.workstream-card { background:#fff; border-color:#dce5ef; box-shadow:0 5px 18px rgba(31,57,84,.045); }
+.card-index { color:#8a99ab; }
+.card-icon { color:#1769aa; background:#edf5fc; }
+.workstream-card p,.integrity-note p { color:#66758b; }
+.card-state { color:#53647a; }
+.card-state span { background:#d49a36; }
+.card-state.ready span { background:#1b9a6c; box-shadow:0 0 8px #1b9a6c33; }
+.ingestion-panel,.model-panel { scroll-margin-top:100px; border:1px solid #dce5ef; border-radius:14px; background:#fff; box-shadow:0 7px 24px rgba(31,57,84,.045); }
+.ingestion-copy { color:#66758b; }
+.file-picker { color:#314761; border-color:#c7d5e4; background:#f9fbfd; }
+.file-picker small { color:#7b899b; }
+.inspect-button { color:#fff; border-color:#1769aa; background:#1769aa; }
+.inspect-button:hover:not(:disabled) { background:#10588f; }
+.upload-result,.model-result { border-color:#b8e2d2; background:#f7fcf9; }
+.result-heading { color:#167a55; }
+.upload-result dt,.model-metrics dt { color:#718096; }
+.upload-result dd { color:#263c57; }
+.checksum-value { background:#f0f5fa; }
+.checksum-value span { color:#285d83; }
+.inline-warning { color:#9a6b1c; }
+.inline-error { color:#b42318; }
+.api-docs-link { color:#1769aa; }
+.model-field { color:#314761; }
+.model-field span { color:#718096; }
+.model-field input,.model-field textarea,.model-field select { color:#243b56; background:#fff; border-color:#cbd7e4; }
+.model-field input::placeholder,.model-field textarea::placeholder { color:#98a5b5; }
+.model-field input:focus,.model-field textarea:focus,.model-field select:focus { border-color:#5b9bc9; box-shadow:0 0 0 3px rgba(23,105,170,.09); }
+.model-field select { background:#fff; }
+.model-metrics>div { border-color:#dce5ef; background:#f9fbfd; }
+.model-metrics dd { color:#1769aa; }
+.model-meta { color:#718096; }
+.model-assumptions { color:#66758b; }
+.model-assumptions strong { color:#314761; }
+.run-row { border-color:#dce5ef; background:#fbfcfe; }
+.run-row-main strong { color:#243b56; }
+.run-row-main span,.run-row-main small { color:#718096; }
+.run-row a { color:#1769aa; }
+.run-empty { color:#718096; }
+.catalog-selection { border-color:#dce5ef; background:#f8fafc; }
+.catalog-selection strong { color:#243b56; }
+.catalog-selection span { color:#66758b; }
+.catalog-selection small { color:#9a6b1c; }
+.planet-chip { color:#52657c; border-color:#d2deea; background:#fff; }
+.planet-chip:hover { border-color:#8db7d8; color:#1769aa; }
+.planet-chip.selected { border-color:#6ba4cf; color:#1769aa; background:#edf5fc; }
+.requirement-editor { border-color:#dce5ef; background:#f8fafc; }
+.integrity-note { border-color:#c9dced; background:#eef6fc; }
+.integrity-icon { color:#1769aa; }
+.integrity-note h3 { color:#243b56; }
+footer { color:#8290a3; border-color:#dce5ef; }
+#overview,#mission-explorer,#mission-workspace,#spacecraft,#traceability,#data-tools,#analysis-tools,#governance,#activity { scroll-margin-top:100px; }
+@media(max-width:900px) {
+ .topbar { height:auto; min-height:76px; flex-wrap:wrap; padding:14px 0; }
+ .topbar-nav { order:3; width:100%; justify-content:flex-start; overflow-x:auto; padding:4px 0 2px; }
+ .topbar-right { margin-left:auto; }
+}
+@media(max-width:560px) {
+ .shell { width:min(100% - 32px,1320px); }
+ .topbar-nav { gap:18px; }
+ .topbar-nav a { white-space:nowrap; }
+ .hero { padding:52px 0 44px; }
+ .hero-primary,.hero-secondary { width:100%; }
+}
