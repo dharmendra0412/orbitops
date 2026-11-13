@@ -6,15 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from app.missions.model_governance import (
-    ModelAssessment,
-    ModelAssessmentCreate,
-    ModelAssessmentKind,
-    ModelAssessmentOutcome,
-    ModelCredibilityState,
-    ModelDefinition,
-    ModelGovernanceCatalog,
-)
+from app.missions import model_governance as governance_contracts
 
 
 MODEL_CATALOG = (
@@ -96,29 +88,29 @@ class ModelGovernanceStore:
             )
 
     @staticmethod
-    def _definition(item: dict, assessments: list[ModelAssessment]) -> ModelDefinition:
+    def _definition(item: dict, assessments: list[governance_contracts.ModelAssessment]) -> governance_contracts.ModelDefinition:
         verification = [
-            item for item in assessments if item.kind == ModelAssessmentKind.VERIFICATION
+            item for item in assessments if item.kind == governance_contracts.ModelAssessmentKind.VERIFICATION
         ]
         validation = [
-            item for item in assessments if item.kind == ModelAssessmentKind.VALIDATION
+            item for item in assessments if item.kind == governance_contracts.ModelAssessmentKind.VALIDATION
         ]
         latest_verification = max(verification, key=lambda item: item.recorded_at) if verification else None
         latest_validation = max(validation, key=lambda item: item.recorded_at) if validation else None
 
         if (
-            (latest_verification and latest_verification.outcome != ModelAssessmentOutcome.PASS)
-            or (latest_validation and latest_validation.outcome != ModelAssessmentOutcome.PASS)
+            (latest_verification and latest_verification.outcome != governance_contracts.ModelAssessmentOutcome.PASS)
+            or (latest_validation and latest_validation.outcome != governance_contracts.ModelAssessmentOutcome.PASS)
         ):
-            state = ModelCredibilityState.REVIEW_REQUIRED
+            state = governance_contracts.ModelCredibilityState.REVIEW_REQUIRED
         elif latest_verification and latest_validation:
-            state = ModelCredibilityState.VALIDATED
+            state = governance_contracts.ModelCredibilityState.VALIDATED
         elif latest_verification:
-            state = ModelCredibilityState.VERIFIED
+            state = governance_contracts.ModelCredibilityState.VERIFIED
         else:
-            state = ModelCredibilityState.UNVALIDATED
+            state = governance_contracts.ModelCredibilityState.UNVALIDATED
 
-        return ModelDefinition(
+        return governance_contracts.ModelDefinition(
             **item,
             current_state=state,
             latest_verification_outcome=(
@@ -129,14 +121,14 @@ class ModelGovernanceStore:
         )
 
     @staticmethod
-    def _assessment(row: sqlite3.Row) -> ModelAssessment:
-        return ModelAssessment(
+    def _assessment(row: sqlite3.Row) -> governance_contracts.ModelAssessment:
+        return governance_contracts.ModelAssessment(
             assessment_id=UUID(row["assessment_id"]),
             model_id=row["model_id"],
             model_version=row["model_version"],
             equation_id=row["equation_id"],
-            kind=ModelAssessmentKind(row["kind"]),
-            outcome=ModelAssessmentOutcome(row["outcome"]),
+            kind=governance_contracts.ModelAssessmentKind(row["kind"]),
+            outcome=governance_contracts.ModelAssessmentOutcome(row["outcome"]),
             method=row["method"],
             performed_at=datetime.fromisoformat(row["performed_at"]),
             performed_by=row["performed_by"],
@@ -146,7 +138,7 @@ class ModelGovernanceStore:
             recorded_at=datetime.fromisoformat(row["recorded_at"]),
         )
 
-    def create(self, payload: ModelAssessmentCreate) -> ModelAssessment:
+    def create(self, payload: governance_contracts.ModelAssessmentCreate) -> governance_contracts.ModelAssessment:
         definition = next(
             (
                 item for item in MODEL_CATALOG
@@ -173,7 +165,7 @@ class ModelGovernanceStore:
                 if dataset is None:
                     raise ModelAssessmentDatasetNotFoundError(payload.reference_dataset_id)
 
-            record = ModelAssessment(
+            record = governance_contracts.ModelAssessment(
                 **payload.model_dump(),
                 assessment_id=uuid4(),
                 recorded_at=datetime.now(UTC),
@@ -198,7 +190,7 @@ class ModelGovernanceStore:
 
     def list_assessments(
         self, model_id: str | None = None, model_version: str | None = None
-    ) -> list[ModelAssessment]:
+    ) -> list[governance_contracts.ModelAssessment]:
         query = "SELECT * FROM model_assessments"
         clauses = []
         params: list[str] = []
@@ -215,7 +207,7 @@ class ModelGovernanceStore:
             rows = connection.execute(query, params).fetchall()
         return [self._assessment(row) for row in rows]
 
-    def catalog(self) -> ModelGovernanceCatalog:
+    def catalog(self) -> governance_contracts.ModelGovernanceCatalog:
         assessments = self.list_assessments()
         definitions = [
             self._definition(
@@ -229,7 +221,7 @@ class ModelGovernanceStore:
             )
             for item in MODEL_CATALOG
         ]
-        return ModelGovernanceCatalog(
+        return governance_contracts.ModelGovernanceCatalog(
             models=definitions,
             limitations=[
                 "Model credibility state is derived from recorded assessment outcomes, not an independent audit.",
