@@ -377,3 +377,102 @@ def test_naif_reference_lsk_converts_j2000_epoch_and_utc_round_trip():
         assert abs(utc_round_trip_et) < 5e-4  # ISOC output is rounded to milliseconds
     finally:
         spice.kclear()
+
+def test_utc_to_et_conversion_requires_inspected_lsk_and_records_provenance(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", tmp_path / "artifacts")
+    fixture = Path(__file__).parent / "fixtures" / "naif0012_reference.tls"
+    content = fixture.read_bytes()
+    registration = payload("reference-lsk")
+    registration["file_name"] = "naif0012_reference.tls"
+    registration["sha256"] = hashlib.sha256(content).hexdigest()
+    try:
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=registration).status_code == 201
+        not_ready = client.post(
+            "/api/v1/ephemeris/spice/kernels/reference-lsk/time-conversions",
+            json={"utc_time": "2000-01-01T11:58:55.816 UTC"},
+        )
+        assert not_ready.status_code == 409
+
+        uploaded = client.post(
+            "/api/v1/ephemeris/spice/kernels/reference-lsk/artifact",
+            files={"upload": ("naif0012_reference.tls", content, "text/plain")},
+        )
+        assert uploaded.status_code == 201
+        inspected = client.post("/api/v1/ephemeris/spice/kernels/reference-lsk/inspection")
+        assert inspected.status_code == 201
+
+        converted = client.post(
+            "/api/v1/ephemeris/spice/kernels/reference-lsk/time-conversions",
+            json={"utc_time": "2000-01-01T11:58:55.816 UTC"},
+        )
+        assert converted.status_code == 201, converted.text
+        body = converted.json()
+        assert abs(body["et_seconds"]) < 5e-4
+        assert body["kernel_id"] == "reference-lsk"
+        assert body["artifact_sha256"] == registration["sha256"]
+        assert body["toolkit_version"] == "8.4.0"
+        assert body["conversion_scope"] == "utc_to_et_using_single_registered_lsk"
+
+        listed = client.get("/api/v1/ephemeris/spice/kernels/reference-lsk/time-conversions")
+        assert listed.status_code == 200
+        assert len(listed.json()) == 1
+        retrieved = client.get(
+            f"/api/v1/ephemeris/spice/kernels/reference-lsk/time-conversions/{body['conversion_id']}"
+        )
+        assert retrieved.status_code == 200
+        assert retrieved.json()["et_seconds"] == body["et_seconds"]
+    finally:
+        clear_overrides()
+
+
+def test_utc_to_et_rejects_missing_utc_suffix_and_non_lsk_registration(tmp_path):
+    configure_store(tmp_path)
+    non_lsk = payload("not-an-lsk")
+    non_lsk["kernel_type"] = "SPK"
+    try:
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=non_lsk).status_code == 201
+        invalid_time = client.post(
+            "/api/v1/ephemeris/spice/kernels/not-an-lsk/time-conversions",
+            json={"utc_time": "2000-01-01T12:00:00"},
+        )
+        assert invalid_time.status_code == 422
+        wrong_kernel = client.post(
+            "/api/v1/ephemeris/spice/kernels/not-an-lsk/time-conversions",
+            json={"utc_time": "2000-01-01T12:00:00 UTC"},
+        )
+        assert wrong_kernel.status_code == 409
+    finally:
+        clear_overrides()
+
+
+def test_utc_to_et_rejects_lsk_artifact_tampering_after_inspection(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", tmp_path / "artifacts")
+    fixture = Path(__file__).parent / "fixtures" / "naif0012_reference.tls"
+    content = fixture.read_bytes()
+    registration = payload("tampered-lsk")
+    registration["sha256"] = hashlib.sha256(content).hexdigest()
+    try:
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=registration).status_code == 201
+        uploaded = client.post(
+            "/api/v1/ephemeris/spice/kernels/tampered-lsk/artifact",
+            files={"upload": ("naif0012_reference.tls", content, "text/plain")},
+        )
+        assert uploaded.status_code == 201
+        assert client.post("/api/v1/ephemeris/spice/kernels/tampered-lsk/inspection").status_code == 201
+        artifact_path = tmp_path / "artifacts" / uploaded.json()["storage_key"]
+        artifact_path.write_bytes(b"tampered LSK")
+
+        converted = client.post(
+            "/api/v1/ephemeris/spice/kernels/tampered-lsk/time-conversions",
+            json={"utc_time": "2000-01-01T11:58:55.816 UTC"},
+        )
+        assert converted.status_code == 422
+        assert "no longer matches" in converted.json()["detail"]
+    finally:
+        clear_overrides()
