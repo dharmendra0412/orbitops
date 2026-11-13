@@ -17,9 +17,9 @@ from app.missions.traceability import RequirementAllocationCreate
 from app.missions.verification import VerificationRecordCreate
 from app.storage.manifests import ManifestStore
 from app.storage.mission_evidence import MissionEvidenceStore
-from app.storage.model_governance import ModelGovernanceStore
 from app.storage.mission_projects import MissionProjectStore
 from app.storage.mission_verification import MissionVerificationStore
+from app.storage.model_governance import ModelGovernanceStore
 from app.storage.requirement_traceability import RequirementTraceabilityStore
 from app.storage.spacecraft_configurations import SpacecraftConfigurationStore
 
