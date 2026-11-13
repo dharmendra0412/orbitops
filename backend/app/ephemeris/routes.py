@@ -10,7 +10,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 
 from app.ephemeris.inspection import SpiceInspectionError, inspect_artifact
-from app.ephemeris.time_conversion import SpiceTimeConversionError, convert_utc_to_et
 from app.ephemeris.kernels import (
     SpiceKernelArtifactRecord,
     SpiceKernelInspectionRecord,
@@ -19,6 +18,7 @@ from app.ephemeris.kernels import (
     SpiceTimeConversionRecord,
     SpiceUtcToEtRequest,
 )
+from app.ephemeris.time_conversion import SpiceTimeConversionError, convert_utc_to_et
 from app.settings import settings
 from app.storage.spice_kernels import SpiceKernelAlreadyExistsError, SpiceKernelStore
 
