@@ -38,7 +38,8 @@ The engineering-grade foundation, mission workspaces, spacecraft configuration, 
 - Engineering-value contracts with unit dimension and provenance metadata.
 - Versioned ideal rocket-equation, constant-average-power energy-balance, and two-body Keplerian orbital mechanics models; all remain unvalidated.
 - Append-only SQLite model-run registry preserving inputs, outputs, equation/model versions, assumptions and limitations.
-- Dataset manifest validation, immutable metadata registry and bounded SHA-256 upload inspection (100 MiB maximum); uploaded bytes are not persisted.\n- Bounded PDS4 XML label metadata inspection (5 MiB maximum), rejecting DTD/entity declarations and limiting XML nesting/element count; referenced science-data files are not inspected.
+- Dataset manifest validation, immutable metadata registry and bounded SHA-256 upload inspection (100 MiB maximum); uploaded bytes are not persisted.
+- Bounded PDS4 XML label metadata inspection (5 MiB maximum), rejecting DTD/entity declarations and limiting XML nesting/element count; referenced science-data files are not inspected.
 
 Spacecraft budget calculations are transparent arithmetic summaries, not an integrated spacecraft simulation. They do not model batteries, eclipses, transients, conversion losses, degradation, thermal coupling or component interactions. Schema validation does not authenticate user-supplied source material or certify component suitability.
 
@@ -114,7 +115,13 @@ Requirement allocations are append-only and must reference a requirement in the 
 - `POST /api/v1/models/governance/assessments` — append verification or validation evidence for a registered model version.
 - `GET /api/v1/models/governance/assessments` — list model assessment records, optionally filtered by model ID/version.
 
-### PDS4 label inspection API\n\n- `POST /api/v1/datasets/pds4/inspect` — inspect a small PDS4 XML label and extract selected identification, observation, file, and array metadata.\n\nThis endpoint is a metadata preview only. It does not perform authoritative PDS4 schema validation, scientific data validation, source authentication, or coordinate/time-system interpretation.\n\n## Engineering integrity rules
+### PDS4 label inspection API
+
+- `POST /api/v1/datasets/pds4/inspect` — inspect a small PDS4 XML label and extract selected identification, observation, file, and array metadata. The frontend includes a PDS4 label upload and metadata preview panel.
+
+This endpoint is a metadata preview only. It does not perform authoritative PDS4 schema validation, scientific data validation, source authentication, or coordinate/time-system interpretation.
+
+## Engineering integrity rules
 
 1. Every physical quantity carries a unit.
 2. Every sourced value has a source/product/version reference.
