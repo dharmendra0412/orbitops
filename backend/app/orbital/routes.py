@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 
 from app.orbital.mechanics import (
     MODEL_ID,
+    HOHMANN_DELTA_V_EQUATION_ID,
     CircularOrbitRequest,
     EscapeVelocityRequest,
     HohmannTransferRequest,
@@ -18,7 +19,6 @@ from app.orbital.mechanics import (
     calculate_orbital_period,
     calculate_vis_viva_speed,
 )
-from app.orbital.mechanics import HOHMANN_DELTA_V_EQUATION_ID
 from app.settings import settings
 from app.storage.model_runs import ModelRunStore
 
