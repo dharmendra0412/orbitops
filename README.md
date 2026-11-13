@@ -115,6 +115,11 @@ Requirement allocations are append-only and must reference a requirement in the 
 - `POST /api/v1/models/governance/assessments` — append verification or validation evidence for a registered model version.
 - `GET /api/v1/models/governance/assessments` — list model assessment records, optionally filtered by model ID/version.
 
+### Orbital numerical regression benchmarks
+
+- Fixed regression vectors use the JPL DE440 Earth gravitational parameter and exercise circular velocity, vis-viva speed, Keplerian period, escape velocity, and ideal Hohmann transfer outputs.
+- See [orbital reference benchmarks](docs/ORBITAL_REFERENCE_BENCHMARKS.md) for the constant, test geometry, expected outputs, source, and validation boundaries. These checks are software regression evidence; orbital model credibility remains UNVALIDATED.
+
 ### PDS4 label inspection API
 
 - `POST /api/v1/datasets/pds4/inspect` — inspect a small PDS4 XML label and extract selected identification, observation, file, and array metadata. The frontend includes a PDS4 label upload and metadata preview panel.
