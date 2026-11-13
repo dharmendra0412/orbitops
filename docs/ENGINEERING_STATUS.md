@@ -1,9 +1,9 @@
 # ORBITOPS Engineering Status
 
 **Snapshot date:** 2026-11-13  
-**Branch:** feature/pds4-label-inspection  
+**Branch:** feature/orbital-reference-benchmarks  
 **Product scope:** Multi-planetary mission engineering foundation  
-**Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and requirement-to-component traceability, and model verification/validation evidence governance, and historical revision change-impact analysis, and frontend checksum-to-manifest registration workflow, and consolidated mission review package, and project-scoped dataset/model evidence associations, and two-body Keplerian orbital mechanics prototypes, and bounded PDS4 XML label inspection implemented; engineering acceptance remains pending.
+**Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and requirement-to-component traceability, and model verification/validation evidence governance, and historical revision change-impact analysis, and frontend checksum-to-manifest registration workflow, and consolidated mission review package, and project-scoped dataset/model evidence associations, two-body Keplerian orbital mechanics prototypes, bounded PDS4 XML label inspection, and deterministic JPL-DE440-based orbital regression benchmarks implemented; independent engineering acceptance remains pending.
 
 ## Implemented
 
@@ -32,7 +32,9 @@
 - Transparent component mass totals, user-declared percentage mass margin, and average power generation/load totals using explicit duty-cycle inputs.
 - Backend tests covering configuration persistence, revision history, dimensional rejection, duplicate component identifiers and budget arithmetic.
 - Frontend controls for mission projects, verification evidence, dataset checksum inspection, propulsion delta-v, power balance and recent model-run retrieval.
-- Bounded PDS4 XML label inspection endpoint with namespace-tolerant metadata extraction, DTD/entity rejection, 5 MiB upload cap, and XML node/depth limits.
+- Bounded PDS4 XML label inspection endpoint with namespace-tolerant metadata extraction, PDS4 Product_* root checks, DTD/entity rejection, 5 MiB upload cap, and XML node/depth limits.
+- Frontend PDS4 metadata preview and explicit prefill of descriptive manifest fields; authoritative source identity, citations, licence, and science-file checksum remain separately supplied and verified by the user.
+- Deterministic orbital regression vectors using the JPL DE440 Earth GM for circular velocity, vis-viva, Keplerian period, escape velocity, and ideal Hohmann transfer.
 
 ## Spacecraft configuration API
 
@@ -58,7 +60,7 @@ Spacecraft component values inherit their own provenance and credibility fields,
 
 - Historical traceability matrix comparison across mission/configuration revisions and formal verification closure. A first revision change-impact comparison endpoint is now available, but historical allocation snapshots and automated evidence invalidation remain unimplemented.
 - Mission lifecycle state transitions, controlled approvals and independent verification/validation acceptance.
-- NASA/PDS product download, label parsing, decoding, coordinate/time transformations.
+- NASA/PDS product download, authoritative PDS4 schema validation, science-data decoding, and coordinate/time transformations.
 - Curated body-specific ephemerides, gravity, atmosphere, radiation, terrain and thermal datasets.
 - Interplanetary trajectory propagation, launch/arrival windows, high-fidelity orbit insertion and transfer design. The current Hohmann calculator is an ideal circular/coplanar two-body estimate only.
 - Destination-specific entry, descent and landing, surface mobility or sample-return models.
@@ -143,3 +145,12 @@ The model requires SI inputs, including gravitational parameter in m^3/s^2 and o
 
 - `POST /api/v1/datasets/pds4/inspect` — accepts a small `.xml` or `.lbl` label and returns selected Identification_Area, Observation_Area, File_Area_Observational, and array metadata.
 - This is not authoritative PDS4 schema validation; referenced science data are not fetched, source authenticity is not checked, and scientific coordinate/time interpretation is out of scope.
+
+
+## Software validation snapshot
+
+- PR #11 CI run #288 passed backend lint, 109 backend tests, frontend TypeScript typecheck, and frontend production build.
+- PR #12 CI run #293 passed backend lint, 110 backend tests, frontend TypeScript typecheck, and frontend production build.
+- PRs #1–#10 also have successful recorded CI runs on their current head commits.
+- These checks validate the recorded software build and regression suite only. They do not constitute independent scientific model validation, uncertainty characterization, mission applicability review, formal verification closure, or flight/safety approval.
+- The orbital regression vectors use the JPL DE440 Earth GM documented in [ORBITAL_REFERENCE_BENCHMARKS.md](ORBITAL_REFERENCE_BENCHMARKS.md); the orbital model itself remains UNVALIDATED.
