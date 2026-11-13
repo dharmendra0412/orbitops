@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-import app.ephemeris.inspection as inspection
+from app.ephemeris import inspection
 
 
 def _stored_artifact(tmp_path: Path, content: bytes = b"KPL/LSK\\n") -> tuple[Path, str]:
