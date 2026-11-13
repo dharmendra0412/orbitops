@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.middleware.request_limits import RequestBodyLimitMiddleware
+
 from app.engineering.routes import ingestion_router
 from app.engineering.routes import router as engineering_router
 from app.ephemeris.routes import router as spice_kernel_router
@@ -28,6 +30,8 @@ app = FastAPI(
     ),
     version="0.1.0",
 )
+
+app.add_middleware(RequestBodyLimitMiddleware)
 
 if settings.cors_origins:
     app.add_middleware(
