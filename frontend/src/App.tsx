@@ -4,6 +4,16 @@ import { Activity, Atom, CheckCircle2, Copy, Database, FileCheck2, Gauge, Layers
 type ApiStatus = "checking" | "online" | "offline";
 type UploadState = "idle" | "uploading" | "success" | "error";
 type UploadResult = { file_name: string; media_type: string; file_size_bytes: number; checksum_sha256: string; storage_status: string };
+type PDS4Inspection = {
+  file_name: string;
+  label_size_bytes: number;
+  root_element: string;
+  product_class: string | null;
+  identification_area: Record<string, string>;
+  observation_area: Record<string, unknown>;
+  file_areas: { file: Record<string, string>; arrays: { element: string; [key: string]: unknown }[] }[];
+  limitations: string[];
+};
 type DatasetManifestSummary = { manifest_id: string; title: string; provider: string; product_id: string; release_or_version: string; file_name: string; checksum_sha256: string; retrieved_at: string };
 type ModelAssessmentSummary = { assessment_id: string; model_id: string; model_version: string; equation_id: string; kind: string; outcome: string; performed_at: string; performed_by: string; summary: string };
 type ProjectDatasetLink = { link_id: string; manifest: DatasetManifestSummary; purpose: string; linked_by: string; linked_at: string };
@@ -101,6 +111,10 @@ export default function App() {
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [uploadError, setUploadError] = useState("");
+  const [pds4File, setPds4File] = useState<File | null>(null);
+  const [pds4State, setPds4State] = useState<ModelState>("idle");
+  const [pds4Result, setPds4Result] = useState<PDS4Inspection | null>(null);
+  const [pds4Error, setPds4Error] = useState("");
   const [datasetManifests, setDatasetManifests] = useState<DatasetManifestSummary[]>([]);
   const [manifestTitle, setManifestTitle] = useState("");
   const [manifestProvider, setManifestProvider] = useState("NASA");
@@ -761,6 +775,37 @@ export default function App() {
     }
   }
 
+  async function inspectPDS4Label() {
+    if (!pds4File) return;
+    if (!/\\.(xml|lbl)$/i.test(pds4File.name)) {
+      setPds4Error("Choose a PDS4 XML label with a .xml or .lbl extension.");
+      setPds4State("error");
+      return;
+    }
+    if (pds4File.size > 5 * 1024 * 1024) {
+      setPds4Error("PDS4 label exceeds the 5 MiB inspection limit.");
+      setPds4State("error");
+      return;
+    }
+    const formData = new FormData();
+    formData.append("file", pds4File);
+    setPds4State("calculating");
+    setPds4Error("");
+    setPds4Result(null);
+    try {
+      const response = await fetch(apiBase + "/api/v1/datasets/pds4/inspect", { method: "POST", body: formData });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(typeof payload.detail === "string" ? payload.detail : "PDS4 label inspection failed");
+      }
+      setPds4Result(payload as PDS4Inspection);
+      setPds4State("success");
+    } catch (error) {
+      setPds4Error(error instanceof Error ? error.message : "Unexpected PDS4 inspection error");
+      setPds4State("error");
+    }
+  }
+
   async function copyChecksum() {
     if (!uploadResult) return;
     try {
@@ -1154,6 +1199,51 @@ export default function App() {
           {projectModelAssessmentLinks.length === 0 && <p className="run-empty">No model assessments linked to this mission.</p>}
         </div>
       </section>}
+
+      <section className="model-panel">
+        <div className="ingestion-heading">
+          <span className="card-icon"><FileCheck2 size={20} /></span>
+          <div><div className="eyebrow">PDS4 LABEL TOOL · METADATA ONLY</div><h2>Inspect a PDS4 product label</h2></div>
+        </div>
+        <p className="ingestion-copy">Upload a small PDS4 XML label (.xml or .lbl) to preview selected product, observation and file-area metadata. The label is inspected in memory and is not registered as an authenticated source.</p>
+        <div className="upload-controls">
+          <label className="file-picker">
+            <input type="file" accept=".xml,.lbl,application/xml,text/xml" onChange={(event) => {
+              setPds4File(event.target.files?.[0] ?? null);
+              setPds4Result(null);
+              setPds4Error("");
+              setPds4State("idle");
+            }} />
+            <span>{pds4File ? pds4File.name : "Choose a PDS4 label"}</span>
+            <small>{pds4File ? formatBytes(pds4File.size) : "XML / LBL · Maximum size: 5 MiB"}</small>
+          </label>
+          <button className="inspect-button" type="button" onClick={inspectPDS4Label} disabled={!pds4File || pds4State === "calculating" || apiStatus !== "online"}>
+            {pds4State === "calculating" ? <LoaderCircle size={16} className="spin" /> : <FileCheck2 size={16} />}
+            {pds4State === "calculating" ? "Inspecting label..." : "Inspect PDS4 label"}
+          </button>
+        </div>
+        {pds4Error && <p className="inline-error">{pds4Error}</p>}
+        {pds4Result && <div className="upload-result">
+          <div className="result-heading"><CheckCircle2 size={17} /> Label metadata extracted</div>
+          <dl>
+            <div><dt>File</dt><dd>{pds4Result.file_name}</dd></div>
+            <div><dt>Root element</dt><dd>{pds4Result.root_element}</dd></div>
+            <div><dt>Product class</dt><dd>{pds4Result.product_class ?? "Not identified"}</dd></div>
+            <div><dt>Label size</dt><dd>{formatBytes(pds4Result.label_size_bytes)}</dd></div>
+          </dl>
+          <div className="model-assumptions">
+            <strong>Identification area</strong>
+            {Object.keys(pds4Result.identification_area).length === 0 ? <p>No identification fields were found.</p> : <dl>{Object.entries(pds4Result.identification_area).map(([key, value]) => <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{value}</dd></div>)}</dl>}
+            <strong>Observation area</strong>
+            {Object.keys(pds4Result.observation_area).length === 0 ? <p>No selected observation metadata was found.</p> : <pre>{JSON.stringify(pds4Result.observation_area, null, 2)}</pre>}
+            <strong>File areas and arrays</strong>
+            {pds4Result.file_areas.length === 0 ? <p>No observational file areas were found.</p> : <pre>{JSON.stringify(pds4Result.file_areas, null, 2)}</pre>}
+            <strong>Inspection limitations</strong>
+            <ul>{pds4Result.limitations.map((item) => <li key={item}>{item}</li>)}</ul>
+          </div>
+        </div>}
+        <p className="inline-warning">This is a bounded metadata preview, not authoritative PDS4 schema validation. Referenced science files are not opened or authenticated, and extracted metadata must be checked against the source archive.</p>
+      </section>
 
       <section className="ingestion-panel">
         <div className="ingestion-heading">
