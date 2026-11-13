@@ -24,6 +24,21 @@ MODEL_CATALOG = (
         "equation_ids": ["POWER.SIMPLE_ENERGY_BALANCE.V1"],
         "intended_scope": "Average supply/load energy bookkeeping over a fixed interval.",
     },
+    {
+        "model_id": "orbital.two-body-keplerian",
+        "display_name": "Two-body Keplerian orbital mechanics",
+        "model_version": "0.1.0",
+        "equation_ids": [
+            "ORBITAL.CIRCULAR_VELOCITY.V1",
+            "ORBITAL.VIS_VIVA.V1",
+            "ORBITAL.PERIOD.V1",
+            "ORBITAL.ESCAPE_VELOCITY.V1",
+            "ORBITAL.HOHMANN.TRANSFER_DELTA_V.V1",
+            "ORBITAL.HOHMANN.TRANSFER_TIME.V1",
+            "ORBITAL.HOHMANN.TRANSFER_SEMIMAJOR_AXIS.V1",
+        ],
+        "intended_scope": "Analytical two-body circular orbit, vis-viva, period, escape velocity, and ideal Hohmann transfer estimates.",
+    },
 )
 
 
