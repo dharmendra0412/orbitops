@@ -140,7 +140,9 @@ class SpiceTimeConversionRecord(BaseModel):
     artifact_sha256: str
     toolkit_name: str = "SpiceyPy"
     toolkit_version: str
-    input_utc: str
+    input_utc: str | None = None
+    input_et_seconds: float | None = None
+    conversion_direction: str = "utc_to_et"
     et_seconds: float
     normalized_utc: str
     converted_at: datetime
@@ -166,3 +168,12 @@ class SpiceUtcToEtRequest(BaseModel):
         if not normalized.upper().endswith(" UTC"):
             raise ValueError("utc_time must end with an explicit UTC time-system suffix")
         return normalized
+
+
+class SpiceEtToUtcRequest(BaseModel):
+    """ET seconds past J2000 TDB to convert using one explicitly selected LSK."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    et_seconds: Annotated[float, Field(allow_inf_nan=False)]
+    precision: Annotated[int, Field(ge=0, le=6)] = 6
