@@ -215,6 +215,7 @@ export default function App() {
       const result = await response.json();
       if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Mission project creation failed");
       setSelectedProject(result as MissionProjectRecord);
+      setVerificationRecords([]);
       setProjectState("success");
       await refreshMissionProjects();
     } catch (error) {
