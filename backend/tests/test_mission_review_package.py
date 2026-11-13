@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.missions.projects import MissionProjectDraft
 from app.missions.review_package_routes import (
+    get_review_evidence_store,
     get_review_project_store,
     get_review_spacecraft_store,
     get_review_traceability_store,
@@ -11,6 +12,7 @@ from app.missions.review_package_routes import (
 from app.missions.spacecraft import SpacecraftConfigurationDraft
 from app.missions.traceability import RequirementAllocationCreate
 from app.missions.verification import VerificationRecordCreate
+from app.storage.mission_evidence import MissionEvidenceStore
 from app.storage.mission_projects import MissionProjectStore
 from app.storage.mission_verification import MissionVerificationStore
 from app.storage.requirement_traceability import RequirementTraceabilityStore
@@ -79,15 +81,18 @@ def configured_stores(tmp_path):
     verification = MissionVerificationStore(database)
     traceability = RequirementTraceabilityStore(database)
     spacecraft = SpacecraftConfigurationStore(database)
+    evidence = MissionEvidenceStore(database)
     app.dependency_overrides[get_review_project_store] = lambda: projects
     app.dependency_overrides[get_review_verification_store] = lambda: verification
     app.dependency_overrides[get_review_traceability_store] = lambda: traceability
     app.dependency_overrides[get_review_spacecraft_store] = lambda: spacecraft
+    app.dependency_overrides[get_review_evidence_store] = lambda: evidence
     project = projects.create(MissionProjectDraft.model_validate(mission_payload()))
     return project, projects, verification, traceability, spacecraft
 
 
 def clear_overrides() -> None:
+    app.dependency_overrides.pop(get_review_evidence_store, None)
     app.dependency_overrides.pop(get_review_project_store, None)
     app.dependency_overrides.pop(get_review_verification_store, None)
     app.dependency_overrides.pop(get_review_traceability_store, None)
@@ -143,6 +148,10 @@ def test_review_package_compiles_allocations_budgets_and_evidence(tmp_path) -> N
         assert package["summary"]["allocated_requirement_count"] == 1
         assert package["summary"]["verification_record_count"] == 1
         assert package["summary"]["spacecraft_component_count"] == 1
+        assert package["summary"]["linked_dataset_count"] == 0
+        assert package["summary"]["linked_model_assessment_count"] == 0
+        assert package["linked_datasets"] == []
+        assert package["linked_model_assessments"] == []
         assert package["spacecraft_budget"]["mass"]["component_mass_kg"] == 5.0
         assert package["traceability_matrix"]["rows"][0]["pass_record_count"] == 1
         assert any("not a design approval" in item for item in package["limitations"])
