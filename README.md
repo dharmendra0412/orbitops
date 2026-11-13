@@ -30,6 +30,7 @@ The engineering-grade foundation, mission workspaces, spacecraft configuration, 
 - Append-only spacecraft configuration revisions linked to mission projects.
 - Requirement-to-component allocation records and a latest-revision traceability matrix, including unallocated requirements, stale component references, and verification evidence counts.
 - Model verification/validation evidence registry with derived credibility states for registered model versions.
+- Historical mission/spacecraft revision comparison with changed requirement/component detection and impacted-allocation reporting.
 - Component mass, user-entered mass margin, and average power generation/load bookkeeping with explicit duty cycles.
 - Engineering-value contracts with unit dimension and provenance metadata.
 - Versioned ideal rocket-equation model and constant-average-power energy-balance model; both remain unvalidated.
@@ -75,6 +76,7 @@ The Vite development server proxies `/api` requests to `http://127.0.0.1:8000`. 
 - `GET /api/v1/missions/projects/{project_id}/verification-records` — list recorded evidence.
 - `POST /api/v1/missions/projects/{project_id}/traceability/allocations` — append a requirement-to-component allocation.
 - `GET /api/v1/missions/projects/{project_id}/traceability/matrix` — retrieve the latest-revision traceability matrix.
+- `GET /api/v1/missions/projects/{project_id}/traceability/change-impact` — compare selected mission and spacecraft revisions and identify allocations requiring review. Supply baseline/target revision numbers as query parameters.
 
 ## Spacecraft configuration API
 
@@ -85,7 +87,7 @@ The Vite development server proxies `/api` requests to `http://127.0.0.1:8000`. 
 
 Each component contains a subsystem, unique revision-scoped identifier, mass value and optional power draw/generation values. Engineering quantities use the shared EngineeringValue contract, including provenance and credibility metadata. The mass margin is user-specified and is applied to the sum of component masses. Average power is calculated from component power values and explicit duty cycles. These calculations are not a validated spacecraft design or feasibility assessment.
 
-Requirement allocations are append-only and must reference a requirement in the latest mission revision and a component in the latest spacecraft configuration. Allocations do not prove compliance. The matrix flags component references that become stale after a spacecraft configuration revision. Mission requirement evidence is append-only; a recorded `pass` is not independent acceptance, formal closure, safety approval or flight qualification. Evidence references are user-supplied and not authenticated. Authentication and per-user/team authorization are not implemented, so these APIs must not be exposed as a multi-tenant production service.
+Requirement allocations are append-only and must reference a requirement in the latest mission revision and a component in the latest spacecraft configuration. Allocations do not prove compliance. The matrix flags component references that become stale after a spacecraft configuration revision. The change-impact report compares historical mission and spacecraft snapshots, lists added/removed/modified requirements and components, and flags current allocations linked to modified or removed items. Allocations are not themselves revisioned, and historical verification evidence is not automatically invalidated. Mission requirement evidence is append-only; a recorded `pass` is not independent acceptance, formal closure, safety approval or flight qualification. Evidence references are user-supplied and not authenticated. Authentication and per-user/team authorization are not implemented, so these APIs must not be exposed as a multi-tenant production service.
 
 ## Dataset and model APIs
 

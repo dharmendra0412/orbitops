@@ -18,6 +18,8 @@ type TraceabilityRow = { requirement_id: string; requirement_title: string; requ
 type TraceabilityMatrix = { mission_revision: number; spacecraft_configuration_revision: number | null; requirement_count: number; allocated_requirement_count: number; unallocated_requirement_count: number; rows: TraceabilityRow[]; limitations: string[] };
 type ModelGovernanceModel = { model_id: string; display_name: string; model_version: string; equation_ids: string[]; intended_scope: string; current_state: "unvalidated" | "verified" | "validated" | "review_required"; latest_verification_outcome: "pass" | "fail" | "inconclusive" | null; latest_validation_outcome: "pass" | "fail" | "inconclusive" | null; assessment_count: number };
 type ModelGovernanceCatalog = { models: ModelGovernanceModel[]; limitations: string[] };
+type RevisionChange = { requirement_id?: string; component_id?: string; change_type: "added" | "removed" | "modified"; baseline_title?: string | null; target_title?: string | null; baseline_name?: string | null; target_name?: string | null; changed_fields: string[] };
+type RevisionImpactReport = { baseline_mission_revision: number; target_mission_revision: number; baseline_spacecraft_revision: number; target_spacecraft_revision: number; requirement_changes: RevisionChange[]; component_changes: RevisionChange[]; impacted_allocations: { allocation_id: string; requirement_id: string; component_id: string; impact_reasons: string[] }[]; added_requirement_count: number; removed_requirement_count: number; modified_requirement_count: number; added_component_count: number; removed_component_count: number; modified_component_count: number; limitations: string[] };
 type MissionCatalog = {
   scope: string;
   destinations: { planet_id: string; display_name: string; planetary_class: string; feasibility_status: string }[];
@@ -154,6 +156,13 @@ export default function App() {
   const [assessmentReference, setAssessmentReference] = useState("");
   const [assessmentState, setAssessmentState] = useState<ModelState>("idle");
   const [assessmentError, setAssessmentError] = useState("");
+  const [baselineMissionRevision, setBaselineMissionRevision] = useState("1");
+  const [targetMissionRevision, setTargetMissionRevision] = useState("1");
+  const [baselineSpacecraftRevision, setBaselineSpacecraftRevision] = useState("1");
+  const [targetSpacecraftRevision, setTargetSpacecraftRevision] = useState("1");
+  const [revisionImpact, setRevisionImpact] = useState<RevisionImpactReport | null>(null);
+  const [revisionImpactState, setRevisionImpactState] = useState<ModelState>("idle");
+  const [revisionImpactError, setRevisionImpactError] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -276,6 +285,34 @@ export default function App() {
 
 
 
+
+  async function analyzeRevisionImpact() {
+    if (!selectedProject) return;
+    const values = [baselineMissionRevision, targetMissionRevision, baselineSpacecraftRevision, targetSpacecraftRevision].map(Number);
+    if (values.some((value) => !Number.isInteger(value) || value < 1) ||
+        values[1] < values[0] || values[3] < values[2]) {
+      setRevisionImpactError("Enter positive revision numbers; target revisions cannot precede baseline revisions.");
+      setRevisionImpactState("error");
+      return;
+    }
+    setRevisionImpactState("calculating");
+    setRevisionImpactError("");
+    try {
+      const params = new URLSearchParams({
+        baseline_mission_revision: String(values[0]), target_mission_revision: String(values[1]),
+        baseline_spacecraft_revision: String(values[2]), target_spacecraft_revision: String(values[3]),
+      });
+      const response = await fetch(apiBase + "/api/v1/missions/projects/" + selectedProject.project_id + "/traceability/change-impact?" + params.toString());
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to analyze revision changes");
+      setRevisionImpact(result as RevisionImpactReport);
+      setRevisionImpactState("success");
+    } catch (error) {
+      setRevisionImpactError(error instanceof Error ? error.message : "Unexpected revision impact error");
+      setRevisionImpactState("error");
+    }
+  }
+
   async function refreshTraceability(projectId: string) {
     try {
       const response = await fetch(apiBase + "/api/v1/missions/projects/" + projectId + "/traceability/matrix");
@@ -326,6 +363,7 @@ export default function App() {
       if (!response.ok) throw new Error("Unable to load spacecraft configuration");
       const record = await response.json() as SpacecraftRecord;
       setSpacecraftRecord(record); setSpacecraftComponents(record.revision.draft.components);
+      setTargetSpacecraftRevision(String(record.latest_revision));
       setTraceabilityComponentId(record.revision.draft.components[0]?.component_id ?? "");
       const budgetResponse = await fetch(base + "/budgets");
       if (budgetResponse.ok) setSpacecraftBudget(await budgetResponse.json() as SpacecraftBudget);
@@ -438,6 +476,7 @@ export default function App() {
       const result = await response.json();
       if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to load mission project");
       setSelectedProject(result as MissionProjectRecord);
+      setTargetMissionRevision(String(result.latest_revision));
       await refreshVerificationRecords(projectId);
       await refreshSpacecraft(projectId);
       await refreshTraceability(projectId);
@@ -782,6 +821,40 @@ export default function App() {
           </div>)}
         </div>}
         {traceabilityMatrix && <div className="model-assumptions"><strong>Interpretation limits</strong><ul>{traceabilityMatrix.limitations.map((item) => <li key={item}>{item}</li>)}</ul></div>}
+      </section>}
+
+
+      {selectedProject && <section className="model-panel revision-impact-panel">
+        <div className="ingestion-heading"><span className="card-icon"><Activity size={20} /></span><div><div className="eyebrow">CONFIGURATION CONTROL · CHANGE IMPACT</div><h2>Revision comparison</h2></div></div>
+        <p className="ingestion-copy">Compare two immutable mission and spacecraft snapshots. The report identifies changed requirements/components and allocations needing review; it does not decide whether a change is acceptable.</p>
+        <div className="model-form">
+          <label className="model-field">Baseline mission revision<input type="number" min="1" step="1" value={baselineMissionRevision} onChange={(e) => setBaselineMissionRevision(e.target.value)} /></label>
+          <label className="model-field">Target mission revision<input type="number" min="1" step="1" value={targetMissionRevision} onChange={(e) => setTargetMissionRevision(e.target.value)} /></label>
+          <label className="model-field">Baseline spacecraft revision<input type="number" min="1" step="1" value={baselineSpacecraftRevision} onChange={(e) => setBaselineSpacecraftRevision(e.target.value)} /></label>
+          <label className="model-field">Target spacecraft revision<input type="number" min="1" step="1" value={targetSpacecraftRevision} onChange={(e) => setTargetSpacecraftRevision(e.target.value)} /></label>
+        </div>
+        <button className="inspect-button model-button" type="button" onClick={analyzeRevisionImpact} disabled={revisionImpactState === "calculating" || !spacecraftRecord}>
+          {revisionImpactState === "calculating" ? <LoaderCircle size={16} className="spin" /> : <Activity size={16} />}
+          {revisionImpactState === "calculating" ? "Comparing revisions..." : "Analyze change impact"}
+        </button>
+        {revisionImpactError && <p className="inline-error">{revisionImpactError}</p>}
+        {revisionImpact && <div className="model-result">
+          <div className="result-heading"><CheckCircle2 size={17} /> Revision comparison report</div>
+          <div className="model-metrics">
+            <div><dt>Requirement changes</dt><dd>{revisionImpact.requirement_changes.length}</dd></div>
+            <div><dt>Component changes</dt><dd>{revisionImpact.component_changes.length}</dd></div>
+            <div><dt>Impacted allocations</dt><dd>{revisionImpact.impacted_allocations.length}</dd></div>
+          </div>
+          <div className="model-assumptions">
+            <strong>Requirement changes</strong>
+            {revisionImpact.requirement_changes.length ? <ul>{revisionImpact.requirement_changes.map((item) => <li key={item.requirement_id}>{item.requirement_id}: {item.change_type}{item.changed_fields.length ? " · " + item.changed_fields.join(", ") : ""}</li>)}</ul> : <p>No requirement changes in the selected revisions.</p>}
+            <strong>Component changes</strong>
+            {revisionImpact.component_changes.length ? <ul>{revisionImpact.component_changes.map((item) => <li key={item.component_id}>{item.component_id}: {item.change_type}{item.changed_fields.length ? " · " + item.changed_fields.join(", ") : ""}</li>)}</ul> : <p>No component changes in the selected revisions.</p>}
+            <strong>Allocations requiring review</strong>
+            {revisionImpact.impacted_allocations.length ? <ul>{revisionImpact.impacted_allocations.map((item) => <li key={item.allocation_id}>{item.requirement_id} → {item.component_id}: {item.impact_reasons.join(", ")}</li>)}</ul> : <p>No current allocations were flagged by this comparison.</p>}
+            <strong>Limitations</strong><ul>{revisionImpact.limitations.map((item) => <li key={item}>{item}</li>)}</ul>
+          </div>
+        </div>}
       </section>}
 
       <section className="ingestion-panel">
