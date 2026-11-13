@@ -2,8 +2,8 @@ import hashlib
 import os
 import sqlite3
 
-import spiceypy as spice
 import pytest
+import spiceypy as spice
 from fastapi.testclient import TestClient
 
 import app.ephemeris.routes as spice_routes
