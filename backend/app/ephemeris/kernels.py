@@ -3,15 +3,15 @@
 Registration stores user-declared metadata only. It does not download, hash,
 parse, furnish, or scientifically validate a kernel.
 """
-import re
 from datetime import datetime
 from enum import StrEnum
+from re import compile as re_compile
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
 
-SHA256_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
+SHA256_PATTERN = re_compile(r"^[0-9a-fA-F]{64}$")
 
 
 class SpiceKernelType(StrEnum):
