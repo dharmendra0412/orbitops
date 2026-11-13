@@ -10,6 +10,9 @@ type MissionProjectDraft = { name: string; summary: string; target_body: string;
 type MissionProjectSummary = { project_id: string; name: string; target_body: string; mission_archetype: string; latest_revision: number; updated_at: string };
 type MissionProjectRecord = { project_id: string; name: string; target_body: string; mission_archetype: string; latest_revision: number; revision: { revision_number: number; draft: MissionProjectDraft } };
 type VerificationRecord = { verification_id: string; requirement_id: string; method: string; outcome: "pass" | "fail" | "inconclusive"; performed_at: string; performed_by: string; summary: string; evidence_reference?: string };
+type SpacecraftComponent = { component_id: string; name: string; subsystem: string; mass: EngineeringOutput; power_draw?: EngineeringOutput | null; power_generation?: EngineeringOutput | null; load_duty_cycle: number; generation_duty_cycle: number };
+type SpacecraftRecord = { latest_revision: number; revision: { draft: { components: SpacecraftComponent[] } } };
+type SpacecraftBudget = { mass: { component_mass_kg: number; margin_percent: number; margin_mass_kg: number; total_with_margin_kg: number }; power: { average_generation_w: number; average_load_w: number; net_power_w: number; assumptions: string[] } };
 type MissionCatalog = {
   scope: string;
   destinations: { planet_id: string; display_name: string; planetary_class: string; feasibility_status: string }[];
@@ -117,6 +120,18 @@ export default function App() {
   const [verificationReference, setVerificationReference] = useState("");
   const [verificationRecords, setVerificationRecords] = useState<VerificationRecord[]>([]);
   const [verificationState, setVerificationState] = useState<ModelState>("idle");
+  const [spacecraftRecord, setSpacecraftRecord] = useState<SpacecraftRecord | null>(null);
+  const [spacecraftBudget, setSpacecraftBudget] = useState<SpacecraftBudget | null>(null);
+  const [spacecraftComponents, setSpacecraftComponents] = useState<SpacecraftComponent[]>([]);
+  const [componentId, setComponentId] = useState("BUS-001");
+  const [componentName, setComponentName] = useState("Spacecraft bus");
+  const [componentSubsystem, setComponentSubsystem] = useState("structure");
+  const [componentMass, setComponentMass] = useState("");
+  const [componentDraw, setComponentDraw] = useState("");
+  const [componentGeneration, setComponentGeneration] = useState("");
+  const [massMargin, setMassMargin] = useState("20");
+  const [spacecraftState, setSpacecraftState] = useState<ModelState>("idle");
+  const [spacecraftError, setSpacecraftError] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -191,6 +206,78 @@ export default function App() {
     }
   }
 
+
+  async function refreshSpacecraft(projectId: string) {
+    try {
+      const base = apiBase + "/api/v1/missions/projects/" + projectId + "/spacecraft";
+      const response = await fetch(base + "/configuration");
+      if (response.status === 404) {
+        setSpacecraftRecord(null); setSpacecraftBudget(null); setSpacecraftComponents([]); return;
+      }
+      if (!response.ok) throw new Error("Unable to load spacecraft configuration");
+      const record = await response.json() as SpacecraftRecord;
+      setSpacecraftRecord(record); setSpacecraftComponents(record.revision.draft.components);
+      const budgetResponse = await fetch(base + "/budgets");
+      if (budgetResponse.ok) setSpacecraftBudget(await budgetResponse.json() as SpacecraftBudget);
+    } catch (error) { setSpacecraftError(error instanceof Error ? error.message : "Unable to load spacecraft data"); }
+  }
+
+  function addSpacecraftComponent() {
+    const mass = Number(componentMass);
+    const draw = componentDraw.trim() ? Number(componentDraw) : null;
+    const generation = componentGeneration.trim() ? Number(componentGeneration) : null;
+    if (!componentId.trim() || !componentName.trim() || !Number.isFinite(mass) || mass < 0 ||
+        (draw !== null && (!Number.isFinite(draw) || draw < 0)) ||
+        (generation !== null && (!Number.isFinite(generation) || generation < 0))) {
+      setSpacecraftError("Enter a component ID/name, non-negative mass, and valid optional power values."); return;
+    }
+    if (spacecraftComponents.some((item) => item.component_id === componentId.trim())) {
+      setSpacecraftError("Component IDs must be unique."); return;
+    }
+    const quantity = (id: string, name: string, value: number, unit: string, dimension: string) => ({
+      value_id: id, name, value, unit, dimension, provenance: "illustrative",
+      assumption_note: "User-entered preliminary value; source not independently verified.",
+      intended_use: "Preliminary spacecraft configuration bookkeeping only.",
+      credibility: "unvalidated", limitations: ["Not independently verified or validated."],
+    });
+    setSpacecraftComponents((items) => [...items, {
+      component_id: componentId.trim(), name: componentName.trim(), subsystem: componentSubsystem,
+      mass: quantity("mass-" + componentId.trim(), componentName.trim() + " mass", mass, "kg", "mass"),
+      power_draw: draw === null ? null : quantity("draw-" + componentId.trim(), componentName.trim() + " power draw", draw, "W", "power"),
+      power_generation: generation === null ? null : quantity("generation-" + componentId.trim(), componentName.trim() + " power generation", generation, "W", "power"),
+      load_duty_cycle: 1, generation_duty_cycle: 1,
+    }]);
+    setComponentId(""); setComponentName(""); setComponentMass(""); setComponentDraw(""); setComponentGeneration(""); setSpacecraftError("");
+  }
+
+  async function saveSpacecraftConfiguration() {
+    if (!selectedProject || spacecraftComponents.length === 0) {
+      setSpacecraftError("Open a mission project and add at least one component."); setSpacecraftState("error"); return;
+    }
+    const margin = Number(massMargin);
+    if (!Number.isFinite(margin) || margin < 0 || margin > 100) {
+      setSpacecraftError("Mass margin must be between 0 and 100 percent."); setSpacecraftState("error"); return;
+    }
+    setSpacecraftState("calculating"); setSpacecraftError("");
+    try {
+      const base = apiBase + "/api/v1/missions/projects/" + selectedProject.project_id + "/spacecraft";
+      const endpoint = base + (spacecraftRecord ? "/configuration/revisions" : "/configuration");
+      const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: selectedProject.name + " spacecraft configuration",
+          description: "User-authored preliminary component configuration.",
+          components: spacecraftComponents, mass_margin_percent: margin,
+          assumptions: ["Component values are user-entered and not independently verified."] }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to save configuration");
+      setSpacecraftRecord(result as SpacecraftRecord);
+      const budgetResponse = await fetch(base + "/budgets");
+      if (budgetResponse.ok) setSpacecraftBudget(await budgetResponse.json() as SpacecraftBudget);
+      setSpacecraftState("success");
+    } catch (error) {
+      setSpacecraftError(error instanceof Error ? error.message : "Unexpected spacecraft error"); setSpacecraftState("error");
+    }
+  }
+
   async function createMissionProject() {
     if (projectName.trim().length < 3 || projectObjective.trim().length < 10) {
       setProjectError("Enter a mission name (at least 3 characters) and objective (at least 10 characters).");
@@ -231,6 +318,7 @@ export default function App() {
       if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to load mission project");
       setSelectedProject(result as MissionProjectRecord);
       await refreshVerificationRecords(projectId);
+      await refreshSpacecraft(projectId);
     } catch (error) {
       setProjectError(error instanceof Error ? error.message : "Unable to load mission project");
       setProjectState("error");
@@ -512,6 +600,27 @@ export default function App() {
           </div>
         </div>}
       </section>
+
+      {selectedProject && <section className="model-panel spacecraft-panel">
+        <div className="ingestion-heading"><span className="card-icon"><Layers3 size={20} /></span><div><div className="eyebrow">SPACECRAFT ENGINEERING</div><h2>Component register & budgets</h2></div></div>
+        <p className="ingestion-copy">Add user-specified spacecraft components and calculate preliminary mass and average-power totals. Values are not independently verified.</p>
+        <div className="model-form">
+          <label className="model-field">Component ID<input value={componentId} onChange={(e) => setComponentId(e.target.value)} maxLength={100} /></label>
+          <label className="model-field">Component name<input value={componentName} onChange={(e) => setComponentName(e.target.value)} maxLength={160} /></label>
+          <label className="model-field">Subsystem<select value={componentSubsystem} onChange={(e) => setComponentSubsystem(e.target.value)}><option value="structure">Structure</option><option value="propulsion">Propulsion</option><option value="power">Power</option><option value="thermal">Thermal</option><option value="avionics">Avionics</option><option value="communications">Communications</option><option value="guidance_navigation_control">GNC</option><option value="payload">Payload</option><option value="mechanisms">Mechanisms</option><option value="other">Other</option></select></label>
+        </div>
+        <div className="model-form">
+          <label className="model-field">Mass <span>kg</span><input type="number" min="0" step="any" value={componentMass} onChange={(e) => setComponentMass(e.target.value)} /></label>
+          <label className="model-field">Power draw <span>W · optional</span><input type="number" min="0" step="any" value={componentDraw} onChange={(e) => setComponentDraw(e.target.value)} /></label>
+          <label className="model-field">Power generation <span>W · optional</span><input type="number" min="0" step="any" value={componentGeneration} onChange={(e) => setComponentGeneration(e.target.value)} /></label>
+        </div>
+        <label className="model-field">Mass margin <span>%</span><input type="number" min="0" max="100" step="0.1" value={massMargin} onChange={(e) => setMassMargin(e.target.value)} /></label>
+        <div className="upload-controls"><button className="planet-chip" type="button" onClick={addSpacecraftComponent}>Add component</button><button className="inspect-button" type="button" onClick={saveSpacecraftConfiguration} disabled={spacecraftState === "calculating"}>{spacecraftState === "calculating" ? "Saving..." : spacecraftRecord ? "Save new revision" : "Save configuration"}</button></div>
+        {spacecraftComponents.map((item) => <div className="run-row" key={item.component_id}><div className="run-row-main"><strong>{item.component_id} · {item.name}</strong><span>{item.subsystem.replaceAll("_", " ")} · {item.mass.value} kg</span><small>Draw {item.power_draw?.value ?? "—"} W · Generation {item.power_generation?.value ?? "—"} W</small></div></div>)}
+        {spacecraftError && <p className="inline-error">{spacecraftError}</p>}
+        {spacecraftRecord && <p className="inline-warning">Configuration revision {spacecraftRecord.latest_revision} · Preliminary values only.</p>}
+        {spacecraftBudget && <div className="model-result"><div className="result-heading"><CheckCircle2 size={17} /> Preliminary budget summary</div><div className="model-metrics"><div><dt>Component mass</dt><dd>{spacecraftBudget.mass.component_mass_kg.toFixed(2)} <small>kg</small></dd></div><div><dt>Mass incl. margin</dt><dd>{spacecraftBudget.mass.total_with_margin_kg.toFixed(2)} <small>kg</small></dd></div><div><dt>Net average power</dt><dd>{spacecraftBudget.power.net_power_w.toFixed(2)} <small>W</small></dd></div></div><div className="model-meta">Average generation {spacecraftBudget.power.average_generation_w.toFixed(2)} W · Average load {spacecraftBudget.power.average_load_w.toFixed(2)} W</div><div className="model-assumptions"><strong>Limitations</strong><ul>{spacecraftBudget.power.assumptions.map((item) => <li key={item}>{item}</li>)}</ul></div></div>}
+      </section>}
 
       <section className="ingestion-panel">
         <div className="ingestion-heading">
