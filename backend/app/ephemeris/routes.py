@@ -60,8 +60,13 @@ def _publish_content_addressed_artifact(
     expected_sha256: str,
     expected_size: int,
 ) -> None:
-    """Publish relative to pinned directory descriptors, without clobbering or following links."""
+    """Serialize publication in a pinned digest directory without following links."""
+    import fcntl
+
     try:
+        # flock on the pinned directory descriptor avoids a lock-file pathname
+        # and serializes deduplication with the publisher's staging-link cleanup.
+        fcntl.flock(artifact_directory_fd, fcntl.LOCK_EX)
         os.chmod(temporary_name, 0o444, dir_fd=staging_fd, follow_symlinks=False)
         try:
             os.link(
@@ -103,6 +108,11 @@ def _publish_content_addressed_artifact(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Unable to safely publish or verify the content-addressed artifact",
         ) from error
+    finally:
+        try:
+            fcntl.flock(artifact_directory_fd, fcntl.LOCK_UN)
+        except (OSError, UnboundLocalError):
+            pass
 
 
 @lru_cache(maxsize=1)
