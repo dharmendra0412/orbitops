@@ -12,7 +12,7 @@ ORBITOPS targets mission-analysis workflows across all eight planets, with multi
 
 See [the current engineering status and remaining release gates](docs/ENGINEERING_STATUS.md). The older `docs/ORBITOPS_CANONICAL/` package is retained as historical project material and is not the source of truth for the engineering-grade branch.
 
-The `engineering-grade-foundation` branch establishes the initial application foundation. It is not a completed mission-analysis product. No lunar site, mission profile, component specification, or model has been silently approved by this scaffold.
+The engineering-grade foundation and mission-workspace services are implemented on feature branches. The spacecraft configuration workstream is under review and remains subject to automated CI and engineering acceptance.
 
 ## Current stack
 
@@ -26,17 +26,15 @@ The `engineering-grade-foundation` branch establishes the initial application fo
 - Eight-planet destination taxonomy and seven mission archetypes via `GET /api/v1/missions/catalog`; feasibility remains unassessed.
 - Persistent mission project workspaces with typed objectives and requirements, immutable numbered revisions, and paginated project listing/retrieval.
 - Append-only requirement verification evidence records linked to the latest project revision, with method consistency checks and evidence references.
-- Frontend requirement authoring and verification-evidence capture/listing for mission projects.
+- Spacecraft component contracts with typed subsystem classification and provenance-aware mass and power values.
+- Append-only spacecraft configuration revisions linked to mission projects.
+- Component mass, user-entered mass margin, and average power generation/load bookkeeping with explicit duty cycles.
 - Engineering-value contracts with unit dimension and provenance metadata.
-- Versioned ideal rocket-equation model with source-traceable standard gravity and explicit unvalidated limitations.
-- Constant-power energy balance model for a fixed interval, with traceable inputs and explicit battery/mission exclusions.
-- Append-only SQLite model-run registry that preserves inputs, outputs, equation/model versions, assumptions and limitations.
-- Dataset manifest validation and immutable metadata registry.
-- Bounded SHA-256 upload inspection (100 MiB maximum); uploaded bytes are not persisted.
-- Interactive frontend file-inspection panel and API connectivity indicator.
-- Automated backend lint/tests and frontend typecheck/build.
+- Versioned ideal rocket-equation model and constant-average-power energy-balance model; both remain unvalidated.
+- Append-only SQLite model-run registry preserving inputs, outputs, equation/model versions, assumptions and limitations.
+- Dataset manifest validation, immutable metadata registry and bounded SHA-256 upload inspection (100 MiB maximum); uploaded bytes are not persisted.
 
-The checksum endpoint computes a digest for uploaded bytes; it does not authenticate a source, download remote data, or establish scientific suitability. The manifest registry stores metadata only, not dataset files.
+Spacecraft budget calculations are transparent arithmetic summaries, not an integrated spacecraft simulation. They do not model batteries, eclipses, transients, conversion losses, degradation, thermal coupling or component interactions. Schema validation does not authenticate user-supplied source material or certify component suitability.
 
 ## Local development
 
@@ -70,24 +68,31 @@ The Vite development server proxies `/api` requests to `http://127.0.0.1:8000`. 
 - `POST /api/v1/missions/projects` — create a mission workspace and immutable revision 1.
 - `GET /api/v1/missions/projects` — list mission workspaces with limit/offset pagination.
 - `GET /api/v1/missions/projects/{project_id}` — retrieve the latest project revision.
-- `POST /api/v1/missions/projects/{project_id}/revisions` — append a new immutable revision without overwriting prior definitions.
-- `POST /api/v1/missions/projects/{project_id}/verification-records` — append verification evidence for a requirement in the latest revision.
-- `GET /api/v1/missions/projects/{project_id}/verification-records` — list recorded evidence for the project.
+- `POST /api/v1/missions/projects/{project_id}/revisions` — append a new immutable revision.
+- `POST /api/v1/missions/projects/{project_id}/verification-records` — append verification evidence.
+- `GET /api/v1/missions/projects/{project_id}/verification-records` — list recorded evidence.
 
-Mission requirements include a category, statement, acceptance criteria, verification method and optional source reference. Verification records capture method, outcome, performer, date, summary and optional evidence reference; records are append-only and are not equivalent to independent approval or mission certification. Creating a project records intent; it does not establish technical feasibility, verification completion or flight readiness. Authentication and per-user/team authorization are not yet implemented, so this API is a development foundation and must not be exposed as a multi-tenant production service.
+## Spacecraft configuration API
 
-## Dataset API
+- `POST /api/v1/missions/projects/{project_id}/spacecraft/configuration` — create the first configuration.
+- `GET /api/v1/missions/projects/{project_id}/spacecraft/configuration` — retrieve the latest configuration.
+- `POST /api/v1/missions/projects/{project_id}/spacecraft/configuration/revisions` — append a configuration revision.
+- `GET /api/v1/missions/projects/{project_id}/spacecraft/budgets` — calculate mass and average-power budgets.
+
+Each component contains a subsystem, unique revision-scoped identifier, mass value and optional power draw/generation values. Engineering quantities use the shared EngineeringValue contract, including provenance and credibility metadata. The mass margin is user-specified and is applied to the sum of component masses. Average power is calculated from component power values and explicit duty cycles. These calculations are not a validated spacecraft design or feasibility assessment.
+
+Mission requirement evidence is append-only; a recorded `pass` is not independent acceptance, formal closure, safety approval or flight qualification. Evidence references are user-supplied and not authenticated. Authentication and per-user/team authorization are not implemented, so these APIs must not be exposed as a multi-tenant production service.
+
+## Dataset and model APIs
 
 - `POST /api/v1/datasets/checksum` — multipart upload; returns filename, media type, byte size, and SHA-256. Maximum 100 MiB; no persistence.
 - `POST /api/v1/datasets/manifests/validate` — validates dataset metadata without saving.
-- `POST /api/v1/datasets/manifests` — registers an immutable manifest; duplicate IDs return HTTP 409.
+- `POST /api/v1/datasets/manifests` — registers an immutable manifest.
 - `GET /api/v1/datasets/manifests` — paginated manifest listing.
 - `GET /api/v1/datasets/manifests/{manifest_id}` — retrieve a registered manifest.
-- `POST /api/v1/models/propulsion/ideal-delta-v` — calculate ideal delta-v from traceable mass and specific-impulse inputs; output remains unvalidated.
+- `POST /api/v1/models/propulsion/ideal-delta-v` — calculate ideal delta-v from traceable inputs; output remains unvalidated.
 - `POST /api/v1/models/power/simple-energy-balance` — compare average supply/load power over a fixed interval; output remains unvalidated.
 - `GET /api/v1/models/runs` and `GET /api/v1/models/runs/{run_id}` — list and retrieve persisted model-run snapshots.
-
-See [the data ingestion contract](docs/DATA_INGESTION_CONTRACT.md), [the manifest registry contract](docs/MANIFEST_REGISTRY.md), [the candidate lunar data-source review](docs/DATA_SOURCE_REVIEW.md), and [the ideal rocket-equation model note](docs/PROPULSION_IDEAL_ROCKET_EQUATION.md), and [the power energy-balance model note](docs/POWER_SIMPLE_ENERGY_BALANCE.md), and [the model-run registry contract](docs/MODEL_RUN_REGISTRY.md).
 
 ## Engineering integrity rules
 
@@ -98,10 +103,6 @@ See [the data ingestion contract](docs/DATA_INGESTION_CONTRACT.md), [the manifes
 5. Missing data is represented as missing—not replaced with invented values.
 6. Model verification, validation, uncertainty, and intended-use limits are release requirements.
 7. No flight certification or operational-safety claim is made without the relevant formal evidence and authorization.
-
-## Planned engineering modules
-
-After controlled data ingestion, the next phases are scientific source curation and independently testable models for geometry, trajectory/propulsion, power, thermal behavior, communications, and mission operations. Each model must have a defined intended use and acceptance evidence before it can produce an engineering-grade result.
 
 ## Branch policy
 
