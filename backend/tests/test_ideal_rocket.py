@@ -44,6 +44,7 @@ def test_ideal_rocket_equation_matches_reference_calculation() -> None:
 
     result = calculate_ideal_delta_v(request)
 
+    assert result.delta_v.value == pytest.approx(2039.2355394714561, rel=1e-12)
     assert result.delta_v.value == pytest.approx(300 * 9.80665 * log(2))
     assert result.initial_mass.value == 2000
     assert result.mass_ratio.value == 2

@@ -1,7 +1,7 @@
 # ORBITOPS Engineering Status
 
 **Snapshot date:** 2026-11-13  
-**Branch:** feature/orbital-reference-benchmarks  
+**Branch:** feature/analytical-model-benchmarks  
 **Product scope:** Multi-planetary mission engineering foundation  
 **Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and requirement-to-component traceability, and model verification/validation evidence governance, and historical revision change-impact analysis, and frontend checksum-to-manifest registration workflow, and consolidated mission review package, and project-scoped dataset/model evidence associations, two-body Keplerian orbital mechanics prototypes, bounded PDS4 XML label inspection, and deterministic JPL-DE440-based orbital regression benchmarks implemented; independent engineering acceptance remains pending.
 
@@ -35,6 +35,7 @@
 - Bounded PDS4 XML label inspection endpoint with namespace-tolerant metadata extraction, PDS4 Product_* root checks, DTD/entity rejection, 5 MiB upload cap, and XML node/depth limits.
 - Frontend PDS4 metadata preview and explicit prefill of descriptive manifest fields; authoritative source identity, citations, licence, and science-file checksum remain separately supplied and verified by the user.
 - Deterministic orbital regression vectors using the JPL DE440 Earth GM for circular velocity, vis-viva, Keplerian period, escape velocity, and ideal Hohmann transfer.
+- Fixed synthetic numerical regression cases for ideal rocket-equation delta-v and constant-average-power energy balance.
 
 ## Spacecraft configuration API
 
@@ -150,7 +151,8 @@ The model requires SI inputs, including gravitational parameter in m^3/s^2 and o
 ## Software validation snapshot
 
 - PR #11 CI run #288 passed backend lint, 109 backend tests, frontend TypeScript typecheck, and frontend production build.
-- PR #12 CI run #293 passed backend lint, 110 backend tests, frontend TypeScript typecheck, and frontend production build.
+- PR #12 CI run #295 passed backend lint, 110 backend tests, frontend TypeScript typecheck, and frontend production build.
+- PR #13 CI run #302 passed backend lint, all 110 backend tests, frontend TypeScript typecheck, and frontend production build, including the fixed propulsion and power regression assertions.
 - PRs #1–#10 also have successful recorded CI runs on their current head commits.
 - These checks validate the recorded software build and regression suite only. They do not constitute independent scientific model validation, uncertainty characterization, mission applicability review, formal verification closure, or flight/safety approval.
 - The orbital regression vectors use the JPL DE440 Earth GM documented in [ORBITAL_REFERENCE_BENCHMARKS.md](ORBITAL_REFERENCE_BENCHMARKS.md); the orbital model itself remains UNVALIDATED.

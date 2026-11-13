@@ -41,6 +41,10 @@ def test_simple_energy_balance_calculates_energy_and_margin() -> None:
     assert result.load_energy.value == 1000
     assert result.energy_margin.value == 500
     assert result.margin_fraction.value == 0.5
+    assert result.supply_energy.value == pytest.approx(1500.0, rel=0, abs=0)
+    assert result.load_energy.value == pytest.approx(1000.0, rel=0, abs=0)
+    assert result.energy_margin.value == pytest.approx(500.0, rel=0, abs=0)
+    assert result.margin_fraction.value == pytest.approx(0.5, rel=0, abs=0)
     assert result.energy_margin.credibility == "unvalidated"
 
 
@@ -51,6 +55,7 @@ def test_simple_energy_balance_allows_negative_energy_margin() -> None:
     result = calculate_simple_energy_balance(SimpleEnergyBalanceRequest.model_validate(payload))
 
     assert result.energy_margin.value == -500
+    assert result.margin_fraction.value == -0.5
 
 
 def test_simple_energy_balance_rejects_wrong_units() -> None:
