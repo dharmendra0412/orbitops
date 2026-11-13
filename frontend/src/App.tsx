@@ -85,6 +85,73 @@ const workstreams = [
   { icon: FileCheck2, title: "Verification & validation", detail: "Requirement-linked evidence records and verification outcomes; independent acceptance remains pending", state: "Evidence register available · acceptance pending", ready: false },
 ];
 
+
+const referenceResources = [
+  {
+    "name": "Design and Develop Science Missions",
+    "org": "NASA",
+    "type": "Mission lifecycle guide",
+    "description": "Systems-engineering overview from science need and requirements through mission design, verification and implementation. Use it to structure launch, space, ground and user segments.",
+    "url": "https://www.nasa.gov/wp-content/uploads/2025/04/250323-design-and-develop-science-mission.pdf?emrc=a454cf"
+  },
+  {
+    "name": "General Mission Analysis Tool (GMAT)",
+    "org": "NASA Software Catalog",
+    "type": "External mission-analysis software",
+    "description": "Open-source mission design, optimisation and navigation software. ORBITOPS links to GMAT as a separate tool; it does not claim to run GMAT internally.",
+    "url": "https://software.nasa.gov/software/GSC-19468-1"
+  },
+  {
+    "name": "Space Mission Concept Development Using CMLs",
+    "org": "JPL Open Repository",
+    "type": "Concept maturity framework",
+    "description": "JPL paper describing incremental assessment of mission-concept maturity, especially early pre-Phase A CML 1–4.",
+    "url": "https://dataverse.jpl.nasa.gov/dataset.xhtml?persistentId=hdl:2014/44299"
+  },
+  {
+    "name": "Mission Design Lab",
+    "org": "NASA Goddard ETD",
+    "type": "Mission design process reference",
+    "description": "Collaborative concept development, feasibility, risk assessment, trade studies and point-design study descriptions.",
+    "url": "https://etd.gsfc.nasa.gov/capabilities/integrated-design-center/mission-design-lab/"
+  },
+  {
+    "name": "Mission Visualization (Mission Viz)",
+    "org": "NASA GitHub",
+    "type": "Open visualization examples",
+    "description": "Repository of web-based orrery demonstrations and tutorials. These are external examples; ORBITOPS does not present them as its own validated propagator.",
+    "url": "https://nasa.github.io/mission-viz/"
+  },
+  {
+    "name": "Build It Yourself — Webb Telescope Game",
+    "org": "NASA Science",
+    "type": "Educational design activity",
+    "description": "Educational activity showing how science objectives influence telescope wavelengths, instruments and optical choices. Not an engineering qualification tool.",
+    "url": "https://science.nasa.gov/mission/webb/game-build-it-yourself/"
+  },
+  {
+    "name": "CubeSat 101",
+    "org": "NASA CubeSat Launch Initiative",
+    "type": "Developer handbook",
+    "description": "Introductory handbook covering CubeSat concepts and development processes from concept development through launch and operations.",
+    "url": "https://www3.nasa.gov/sites/default/files/atoms/files/nasa_csli_cubesat_101_508.pdf"
+  },
+  {
+    "name": "Visualize a Space Mission Using Virtual Reality",
+    "org": "NASA Space Apps Challenge 2023",
+    "type": "Challenge brief",
+    "description": "Challenge reference for visualising mission concepts, trajectories, timelines and three-dimensional spatial relationships.",
+    "url": "https://www.spaceappschallenge.org/2023/challenges/visualize-a-space-mission-using-virtual-reality/"
+  },
+  {
+    "name": "Digital Games and Activities",
+    "org": "Canadian Space Agency",
+    "type": "Partner learning resources",
+    "description": "CSA collection of space-science games, digital activities, e-books and learning materials.",
+    "url": "https://www.asc-csa.gc.ca/eng/youth-educators/digital-games-and-activities.asp"
+  }
+] as const;
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return bytes + " B";
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
@@ -929,6 +996,7 @@ export default function App() {
           <a href="#analysis-tools">Analysis</a>
           <a href="#data-tools">Data</a>
           <a href="#governance">Governance</a>
+          <a href="#resources">Resources</a>
         </nav>
         <div className="topbar-right">
           <span className="environment-label">MULTI-PLANETARY WORKSPACE</span>
@@ -1520,6 +1588,25 @@ export default function App() {
           <h3>Scientific integrity is a release requirement</h3>
           <p>No placeholder measurements, invented hardware specifications or unvalidated model outputs will be presented as engineering facts. Capabilities will be enabled only when their evidence and acceptance criteria are in place.</p>
         </div>
+      </section>
+
+      <section className="model-panel reference-library" id="resources" aria-labelledby="resources-title">
+        <div className="ingestion-heading">
+          <span className="card-icon"><BookOpen size={20} /></span>
+          <div><div className="eyebrow">SOURCE MATERIAL · EXTERNAL REFERENCES</div><h2 id="resources-title">Mission engineering resource library</h2></div>
+        </div>
+        <p className="ingestion-copy">Curated technical and educational references supplied for the ORBITOPS roadmap. These links are reference material, not evidence that ORBITOPS implements or reproduces the linked software, models, datasets or results.</p>
+        <div className="resource-grid">
+          {referenceResources.map((resource) => (
+            <article className="resource-card" key={resource.name}>
+              <div className="resource-meta"><span>{resource.org}</span><span>{resource.type}</span></div>
+              <h3>{resource.name}</h3>
+              <p>{resource.description}</p>
+              <a href={resource.url} target="_blank" rel="noreferrer">Open original resource <ExternalLink size={13} /></a>
+            </article>
+          ))}
+        </div>
+        <p className="resource-attribution">NASA and Canadian Space Agency resources remain the property of their respective publishers. NASA does not endorse any non-U.S. Government entity and is not responsible for information on non-U.S. Government websites. Follow each source's own data-use and licence terms.</p>
       </section>
 
       <footer>
