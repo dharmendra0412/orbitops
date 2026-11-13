@@ -918,6 +918,43 @@ def test_concurrent_artifact_publication_serializes_deduplication(tmp_path):
 
 
 
+def test_upload_holds_digest_lock_until_artifact_metadata_commit(tmp_path, monkeypatch):
+    import fcntl
+
+    store = configure_store(tmp_path)
+    storage_root = tmp_path / "artifacts"
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", storage_root)
+    content = b"publication lock must cover the filesystem-to-database commit window"
+    digest = hashlib.sha256(content).hexdigest()
+    registration = payload("locked-publication")
+    registration["sha256"] = digest
+    original_create_artifact = store.create_artifact
+
+    def assert_lock_held(artifact):
+        artifact_directory = storage_root / "sha256" / digest[:2]
+        descriptor = os.open(artifact_directory, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        finally:
+            os.close(descriptor)
+        return original_create_artifact(artifact)
+
+    monkeypatch.setattr(store, "create_artifact", assert_lock_held)
+    try:
+        assert client.post(
+            "/api/v1/ephemeris/spice/kernels", json=registration
+        ).status_code == 201
+        response = client.post(
+            "/api/v1/ephemeris/spice/kernels/locked-publication/artifact",
+            files={"upload": ("kernel.bin", content, "application/octet-stream")},
+        )
+        assert response.status_code == 201, response.text
+        assert store.get_artifact("locked-publication") is not None
+    finally:
+        clear_overrides()
+
+
 def test_spice_registry_enforces_foreign_keys_on_every_connection(tmp_path):
     store = SpiceKernelStore(tmp_path / "spice-kernels.sqlite3")
 
