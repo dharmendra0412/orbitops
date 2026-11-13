@@ -126,16 +126,19 @@ Requirement allocations are append-only and must reference a requirement in the 
 - See [orbital reference benchmarks](docs/ORBITAL_REFERENCE_BENCHMARKS.md) for the constant, test geometry, expected outputs, source, and validation boundaries. These checks are software regression evidence; orbital model credibility remains UNVALIDATED.
 
 
-### SPICE kernel provenance and artifact acquisition
+### SPICE kernel provenance, artifact acquisition, and inspection
 
-- `POST /api/v1/ephemeris/spice/kernels` — register user-declared kernel identity, type, source URL, release, SHA-256, optional coverage, time system, frames, targets, and terms.
-- `GET /api/v1/ephemeris/spice/kernels` — list registrations with limit/offset pagination.
-- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}` — retrieve one immutable registration.
-- `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact` — upload the binary, compute SHA-256 server-side, and persist it only when it matches the registered digest (1 GiB application limit).
-- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact` — retrieve acquisition metadata, not the binary.
+- \`POST /api/v1/ephemeris/spice/kernels\` — register user-declared kernel identity, type, source URL, release, SHA-256, optional coverage, time system, frames, targets, and terms.
+- \`GET /api/v1/ephemeris/spice/kernels\` — list registrations with limit/offset pagination.
+- \`GET /api/v1/ephemeris/spice/kernels/{kernel_id}\` — retrieve one immutable registration.
+- \`POST /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact\` — upload a kernel binary, compute SHA-256 server-side, and persist it only when it matches the registered digest (1 GiB application limit).
+- \`GET /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact\` — retrieve artifact acquisition metadata.
+- \`POST /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection\` — inspect the acquired kernel with pinned SpiceyPy/CSPICE 8.4.0.
+- \`GET /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection\` — retrieve the immutable inspection result.
 
-Artifacts are stored under the configured `SPICE_KERNEL_STORAGE_PATH` (default `data/spice-kernels`) using a SHA-256 content-addressed key. The API never dereferences the user-supplied source URL, so this increment does not introduce server-side URL fetching or redirects. The matching digest proves only that uploaded bytes match the registered user declaration; it does not authenticate the publisher or independently trusted checksum. Kernel parsing, furnishing, and scientific validation are not implemented. See [SPICE kernel provenance](docs/SPICE_KERNEL_PROVENANCE.md).
+Inspection re-hashes the stored artifact, verifies the detected kernel family, extracts SPK object IDs and raw ET coverage intervals, binary PCK frame class IDs, and DSK object IDs. Other registered types receive header/type inspection only. Parsing runs in a time-limited subprocess with best-effort POSIX resource limits. Meta-kernels are never furnished or loaded.
 
+A digest match proves only that uploaded bytes match the user-declared digest; it does not independently authenticate the publisher or checksum source. Subprocess limits are not a complete OS sandbox, and CSPICE metadata inspection is not scientific validation. Authentication and per-user/team authorization are not implemented. See [SPICE kernel provenance and inspection](docs/SPICE_KERNEL_PROVENANCE.md) for scope and remaining gates.
 ### PDS4 label inspection API
 
 - `POST /api/v1/datasets/pds4/inspect` — inspect a small PDS4 XML label and extract selected identification, observation, file, and array metadata. The frontend includes a PDS4 label upload and metadata preview panel.
