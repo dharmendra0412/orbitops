@@ -19,6 +19,7 @@
 - Eight-planet destination taxonomy and seven mission archetypes through
   GET /api/v1/missions/catalog.
 - Persistent mission project workspaces with typed requirements, immutable numbered revisions, retrieval and pagination.
+- Append-only requirement verification evidence registry linked to requirements in the latest project revision, with verification-method consistency checks.
 - Frontend controls for dataset checksum inspection, propulsion delta-v, power
   balance and recent model-run retrieval.
 
@@ -31,7 +32,7 @@ planetary environment data or mission feasibility is claimed.
 
 ## Not implemented
 
-- Mission lifecycle state transitions, requirement-to-subsystem traceability, approvals and verification evidence.
+- Mission lifecycle state transitions, requirement-to-subsystem traceability, controlled approvals and independent verification/validation acceptance.
 - NASA/PDS product download, label parsing, decoding, coordinate/time transformations.
 - Curated body-specific ephemerides, gravity, atmosphere, radiation, terrain and thermal datasets.
 - Interplanetary trajectory propagation, launch/arrival windows, orbit insertion and transfer design.
@@ -39,6 +40,10 @@ planetary environment data or mission feasibility is claimed.
 - Battery state-of-charge, thermal network, communications link budget and integrated mission simulation.
 - Independent verification/validation, uncertainty quantification, sensitivity studies and formal acceptance evidence.
 - Authentication/authorization, signed/tamper-evident audit records and production deployment hardening.
+
+## Requirement verification evidence status
+
+Verification evidence records are append-only and reference a requirement in the latest project revision. The API checks that the recorded method matches the requirement's declared verification method (unless it is still TBD). Outcomes are evidence entries only: a `pass` does not constitute independent acceptance, formal verification closure, safety approval or flight qualification. Evidence references are user-supplied strings and are not fetched or authenticated.
 
 ## Mission project workspace status
 
