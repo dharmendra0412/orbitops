@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.ingestion.pds4 import inspect_pds4_label
+from app.main import app
 
 client = TestClient(app)
 LABEL = b"""<?xml version="1.0"?>
