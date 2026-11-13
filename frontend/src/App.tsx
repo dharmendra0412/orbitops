@@ -363,6 +363,7 @@ export default function App() {
       if (!response.ok) throw new Error("Unable to load spacecraft configuration");
       const record = await response.json() as SpacecraftRecord;
       setSpacecraftRecord(record); setSpacecraftComponents(record.revision.draft.components);
+      setTargetSpacecraftRevision(String(record.latest_revision));
       setTraceabilityComponentId(record.revision.draft.components[0]?.component_id ?? "");
       const budgetResponse = await fetch(base + "/budgets");
       if (budgetResponse.ok) setSpacecraftBudget(await budgetResponse.json() as SpacecraftBudget);
@@ -475,6 +476,7 @@ export default function App() {
       const result = await response.json();
       if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to load mission project");
       setSelectedProject(result as MissionProjectRecord);
+      setTargetMissionRevision(String(result.latest_revision));
       await refreshVerificationRecords(projectId);
       await refreshSpacecraft(projectId);
       await refreshTraceability(projectId);
