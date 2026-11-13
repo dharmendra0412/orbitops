@@ -1,4 +1,4 @@
-"""Isolated UTC-to-ET conversion using exactly one acquired LSK kernel."""
+"""Isolated UTC/ET conversion using exactly one acquired LSK kernel."""
 import json
 import math
 import sys
@@ -24,17 +24,27 @@ def apply_process_limits() -> None:
 def main() -> int:
     apply_process_limits()
     path = Path(sys.argv[1]).resolve(strict=True)
-    utc_time = sys.argv[2]
+    mode = sys.argv[2]
+    value = sys.argv[3]
+    precision = int(sys.argv[4])
     try:
         architecture, kernel_type = spice.getfat(str(path))
         if architecture.upper() != "KPL" or kernel_type.upper() != "LSK":
             raise ValueError("Time conversion requires a text LSK (KPL/LSK) artifact")
 
         spice.furnsh(str(path))
-        et_seconds = float(spice.str2et(utc_time))
+        if mode == "utc_to_et":
+            et_seconds = float(spice.str2et(value))
+        elif mode == "et_to_utc":
+            et_seconds = float(value)
+            if not math.isfinite(et_seconds):
+                raise ValueError("ET seconds must be a finite number")
+        else:
+            raise ValueError("Unsupported SPICE time-conversion direction")
+
         if not math.isfinite(et_seconds):
             raise ValueError("CSPICE returned a non-finite ET value")
-        normalized_utc = spice.et2utc(et_seconds, "ISOC", 6)
+        normalized_utc = spice.et2utc(et_seconds, "ISOC", precision)
         print(json.dumps({
             "et_seconds": et_seconds,
             "normalized_utc": normalized_utc,
