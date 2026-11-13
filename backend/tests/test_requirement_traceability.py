@@ -6,11 +6,11 @@ from app.main import app
 from app.missions.project_routes import get_mission_project_store
 from app.missions.projects import MissionProjectDraft
 from app.missions.spacecraft import SpacecraftConfigurationDraft
+from app.missions.traceability import RequirementAllocationCreate
 from app.missions.traceability_routes import get_requirement_traceability_store
 from app.missions.verification import VerificationRecordCreate
 from app.storage.mission_projects import MissionProjectStore
 from app.storage.mission_verification import MissionVerificationStore
-from app.missions.traceability import RequirementAllocationCreate
 from app.storage.requirement_traceability import RequirementTraceabilityStore
 from app.storage.spacecraft_configurations import SpacecraftConfigurationStore
 
