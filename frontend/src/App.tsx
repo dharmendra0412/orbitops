@@ -303,6 +303,11 @@ export default function App() {
       if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Mission project creation failed");
       setSelectedProject(result as MissionProjectRecord);
       setVerificationRecords([]);
+      setSpacecraftRecord(null);
+      setSpacecraftBudget(null);
+      setSpacecraftComponents([]);
+      setSpacecraftError("");
+      setSpacecraftState("idle");
       setProjectState("success");
       await refreshMissionProjects();
     } catch (error) {
