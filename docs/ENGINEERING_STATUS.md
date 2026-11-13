@@ -35,7 +35,8 @@
 - Bounded PDS4 XML label inspection endpoint with namespace-tolerant metadata extraction, PDS4 Product_* root checks, DTD/entity rejection, 5 MiB upload cap, and XML node/depth limits.
 - Frontend PDS4 metadata preview and explicit prefill of descriptive manifest fields; authoritative source identity, citations, licence, and science-file checksum remain separately supplied and verified by the user.
 - Deterministic orbital regression vectors using the JPL DE440 Earth GM for circular velocity, vis-viva, Keplerian period, escape velocity, and ideal Hohmann transfer.
-- Fixed synthetic numerical regression cases for ideal rocket-equation delta-v and constant-average-power energy balance.\n- Append-only SPICE kernel metadata registry with typed kernel families, source/release metadata, user-declared SHA-256, optional timezone-aware coverage, time-system, frame, target and terms fields.
+- Fixed synthetic numerical regression cases for ideal rocket-equation delta-v and constant-average-power energy balance.
+- Append-only SPICE kernel metadata registry with typed kernel families, source/release metadata, user-declared SHA-256, optional timezone-aware coverage, time-system, frame, target and terms fields.\n- Bounded SPICE kernel artifact upload (1 GiB application limit), server-computed SHA-256 comparison, temporary staging cleanup, and content-addressed local storage; artifacts remain unparsed and unvalidated.
 
 ## Spacecraft configuration API
 
@@ -167,3 +168,12 @@ The model requires SI inputs, including gravitational parameter in m^3/s^2 and o
 The registration contract supports SPK, PCK, LSK, FK, IK, SCLK, DSK, and meta-kernel (MK) classifications. It records source URL, provider, release, user-declared SHA-256, optional timezone-aware coverage bounds, time system, reference frames, target names, and licence/terms. Duplicate IDs are rejected; registrations are append-only. The registry does not download or store kernel binaries, compute the checksum, authenticate source/terms, inspect kernel contents, or validate coverage/frame declarations. Every record is explicitly marked `user_declared_unverified`.
 
 Next integration gates are independent checksum verification of a downloaded artifact, secure and provenance-preserving storage, kernel-format inspection, controlled SPICE toolkit integration, time-system/frame transformation tests, and reference-vector comparison against authoritative NAIF examples. Until those gates exist, no ephemeris query or trajectory result is claimed.
+
+
+## SPICE artifact acquisition
+
+- `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact` accepts an explicit multipart upload, computes SHA-256 in 1 MiB chunks, rejects mismatches, and stores matching bytes under a content-addressed key.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact` returns acquisition metadata only.
+- The source URL is never fetched. The digest match is against a user-declared value and does not independently authenticate publisher or checksum provenance.
+- Uploads are capped at 1 GiB in the application. A deployment must also configure upstream request-body limits and protect the storage volume.
+- No SPICE parser/toolkit, kernel furnishing, frame/time conversion, ephemeris query, or scientific validation is implemented. Authentication and per-user/team authorization are still absent.
