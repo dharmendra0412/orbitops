@@ -1,10 +1,10 @@
 """SQLite persistence for spacecraft configuration snapshots."""
 import json
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterator
 from uuid import UUID, uuid4
 
 from app.missions.spacecraft import (
@@ -20,6 +20,10 @@ class SpacecraftProjectNotFoundError(Exception):
 
 class SpacecraftConfigurationNotFoundError(Exception):
     """The mission project has no spacecraft configuration."""
+
+
+class SpacecraftConfigurationExistsError(Exception):
+    """The mission project already has a spacecraft configuration."""
 
 
 class SpacecraftConfigurationStore:
@@ -71,7 +75,9 @@ class SpacecraftConfigurationStore:
             )
 
     @staticmethod
-    def _record(connection: sqlite3.Connection, configuration: sqlite3.Row) -> SpacecraftConfigurationRecord:
+    def _record(
+        connection: sqlite3.Connection, configuration: sqlite3.Row
+    ) -> SpacecraftConfigurationRecord:
         revision = connection.execute(
             """
             SELECT * FROM spacecraft_configuration_revisions
@@ -94,15 +100,21 @@ class SpacecraftConfigurationStore:
             ),
         )
 
-    def create(self, project_id: UUID, draft: SpacecraftConfigurationDraft) -> SpacecraftConfigurationRecord:
+    def create(
+        self, project_id: UUID, draft: SpacecraftConfigurationDraft
+    ) -> SpacecraftConfigurationRecord:
         with self._connection() as connection:
             project = connection.execute(
                 "SELECT 1 FROM mission_projects WHERE project_id = ?", (str(project_id),)
             ).fetchone()
             if project is None:
                 raise SpacecraftProjectNotFoundError(str(project_id))
+            existing = connection.execute(
+                "SELECT 1 FROM spacecraft_configurations WHERE project_id = ?", (str(project_id),)
+            ).fetchone()
+            if existing is not None:
+                raise SpacecraftConfigurationExistsError(str(project_id))
             configuration_id = str(uuid4())
-            revision_id = str(uuid4())
             now = datetime.now(UTC).isoformat()
             connection.execute(
                 "INSERT INTO spacecraft_configurations VALUES (?, ?, 1)",
@@ -114,14 +126,20 @@ class SpacecraftConfigurationStore:
                     (revision_id, configuration_id, revision_number, created_at, payload_json)
                 VALUES (?, ?, 1, ?, ?)
                 """,
-                (revision_id, configuration_id, now, json.dumps(draft.model_dump(mode="json"), sort_keys=True)),
+                (
+                    str(uuid4()), configuration_id, now,
+                    json.dumps(draft.model_dump(mode="json"), sort_keys=True),
+                ),
             )
             row = connection.execute(
-                "SELECT * FROM spacecraft_configurations WHERE configuration_id = ?", (configuration_id,)
+                "SELECT * FROM spacecraft_configurations WHERE configuration_id = ?",
+                (configuration_id,),
             ).fetchone()
             return self._record(connection, row)
 
-    def create_revision(self, project_id: UUID, draft: SpacecraftConfigurationDraft) -> SpacecraftConfigurationRecord:
+    def create_revision(
+        self, project_id: UUID, draft: SpacecraftConfigurationDraft
+    ) -> SpacecraftConfigurationRecord:
         with self._connection() as connection:
             configuration = connection.execute(
                 "SELECT * FROM spacecraft_configurations WHERE project_id = ?", (str(project_id),)
