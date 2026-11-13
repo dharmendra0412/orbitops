@@ -9,6 +9,7 @@ type MissionRequirement = { requirement_id: string; title: string; statement: st
 type MissionProjectDraft = { name: string; summary: string; target_body: string; mission_archetype: string; primary_objective: string; intended_users: string[]; requirements: MissionRequirement[] };
 type MissionProjectSummary = { project_id: string; name: string; target_body: string; mission_archetype: string; latest_revision: number; updated_at: string };
 type MissionProjectRecord = { project_id: string; name: string; target_body: string; mission_archetype: string; latest_revision: number; revision: { revision_number: number; draft: MissionProjectDraft } };
+type VerificationRecord = { verification_id: string; requirement_id: string; method: string; outcome: "pass" | "fail" | "inconclusive"; performed_at: string; performed_by: string; summary: string; evidence_reference?: string };
 type MissionCatalog = {
   scope: string;
   destinations: { planet_id: string; display_name: string; planetary_class: string; feasibility_status: string }[];
@@ -106,6 +107,16 @@ export default function App() {
   const [projectState, setProjectState] = useState<ModelState>("idle");
   const [projectError, setProjectError] = useState("");
   const [selectedProject, setSelectedProject] = useState<MissionProjectRecord | null>(null);
+  const [requirementId, setRequirementId] = useState("SCI-001");
+  const [requirementTitle, setRequirementTitle] = useState("Acquire surface imagery");
+  const [requirementStatement, setRequirementStatement] = useState("The payload shall acquire image data from the landing site.");
+  const [requirementAcceptance, setRequirementAcceptance] = useState("Image acquisition performance is evaluated against a documented payload specification.");
+  const [requirementMethod, setRequirementMethod] = useState("test");
+  const [verificationOutcome, setVerificationOutcome] = useState<"pass" | "fail" | "inconclusive">("inconclusive");
+  const [verificationSummary, setVerificationSummary] = useState("");
+  const [verificationReference, setVerificationReference] = useState("");
+  const [verificationRecords, setVerificationRecords] = useState<VerificationRecord[]>([]);
+  const [verificationState, setVerificationState] = useState<ModelState>("idle");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -146,6 +157,40 @@ export default function App() {
     } catch { /* Project list is refreshed on the next API interaction. */ }
   }
 
+  async function refreshVerificationRecords(projectId: string) {
+    try {
+      const response = await fetch(apiBase + "/api/v1/missions/projects/" + projectId + "/verification-records");
+      if (response.ok) setVerificationRecords(await response.json() as VerificationRecord[]);
+    } catch { /* Evidence can be refreshed when the project is reopened. */ }
+  }
+
+  async function createVerificationRecord() {
+    if (!selectedProject) return;
+    const requirement = selectedProject.revision.draft.requirements[0];
+    if (!requirement) return;
+    if (verificationSummary.trim().length < 5) {
+      setProjectError("Enter a concise verification summary of at least 5 characters.");
+      setVerificationState("error");
+      return;
+    }
+    setVerificationState("calculating");
+    setProjectError("");
+    try {
+      const response = await fetch(apiBase + "/api/v1/missions/projects/" + selectedProject.project_id + "/verification-records", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requirement_id: requirement.requirement_id, method: requirement.verification_method, outcome: verificationOutcome, performed_at: new Date().toISOString(), performed_by: "Workspace user", summary: verificationSummary.trim(), evidence_reference: verificationReference.trim() || null }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Could not save verification evidence");
+      setVerificationSummary("");
+      setVerificationState("success");
+      await refreshVerificationRecords(selectedProject.project_id);
+    } catch (error) {
+      setProjectError(error instanceof Error ? error.message : "Unexpected verification error");
+      setVerificationState("error");
+    }
+  }
+
   async function createMissionProject() {
     if (projectName.trim().length < 3 || projectObjective.trim().length < 10) {
       setProjectError("Enter a mission name (at least 3 characters) and objective (at least 10 characters).");
@@ -159,7 +204,7 @@ export default function App() {
       mission_archetype: selectedArchetype,
       primary_objective: projectObjective.trim(),
       intended_users: ["students", "researchers", "engineers"],
-      requirements: [],
+      requirements: [{ requirement_id: requirementId.trim(), title: requirementTitle.trim(), statement: requirementStatement.trim(), category: "science", verification_method: requirementMethod, acceptance_criteria: requirementAcceptance.trim() }],
     };
     setProjectState("calculating");
     setProjectError("");
@@ -184,6 +229,7 @@ export default function App() {
       const result = await response.json();
       if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to load mission project");
       setSelectedProject(result as MissionProjectRecord);
+      await refreshVerificationRecords(projectId);
     } catch (error) {
       setProjectError(error instanceof Error ? error.message : "Unable to load mission project");
       setProjectState("error");
@@ -407,6 +453,20 @@ export default function App() {
         <label className="model-field">Primary mission objective
           <textarea value={projectObjective} onChange={(event) => setProjectObjective(event.target.value)} rows={3} maxLength={4000} />
         </label>
+        <div className="requirement-editor">
+          <div className="eyebrow">INITIAL SCIENCE REQUIREMENT</div>
+          <div className="model-form">
+            <label className="model-field">Requirement ID<input value={requirementId} onChange={(event) => setRequirementId(event.target.value)} maxLength={100} /></label>
+            <label className="model-field">Verification method
+              <select value={requirementMethod} onChange={(event) => setRequirementMethod(event.target.value)}>
+                <option value="test">Test</option><option value="analysis">Analysis</option><option value="inspection">Inspection</option><option value="demonstration">Demonstration</option><option value="to_be_defined">To be defined</option>
+              </select>
+            </label>
+            <label className="model-field">Requirement title<input value={requirementTitle} onChange={(event) => setRequirementTitle(event.target.value)} maxLength={200} /></label>
+          </div>
+          <label className="model-field">Requirement statement<textarea value={requirementStatement} onChange={(event) => setRequirementStatement(event.target.value)} rows={2} maxLength={2000} /></label>
+          <label className="model-field">Acceptance criteria<textarea value={requirementAcceptance} onChange={(event) => setRequirementAcceptance(event.target.value)} rows={2} maxLength={2000} /></label>
+        </div>
         <button className="inspect-button model-button" type="button" onClick={createMissionProject} disabled={apiStatus !== "online" || projectState === "calculating"}>
           {projectState === "calculating" ? <LoaderCircle size={16} className="spin" /> : <Layers3 size={16} />}
           {projectState === "calculating" ? "Creating project..." : "Create mission project"}
@@ -428,6 +488,27 @@ export default function App() {
           <strong>{selectedProject.name} · Revision {selectedProject.latest_revision}</strong>
           <span>{selectedProject.revision.draft.primary_objective}</span>
           <small>{selectedProject.target_body} · {selectedProject.mission_archetype} · Project definition only</small>
+        </div>}
+        {selectedProject && <div className="requirement-editor">
+          <div className="eyebrow">REQUIREMENT VERIFICATION EVIDENCE</div>
+          <p className="ingestion-copy">Record an outcome against {selectedProject.revision.draft.requirements[0]?.requirement_id ?? "the selected requirement"}. Evidence entries are append-only and do not constitute independent approval.</p>
+          <div className="model-form">
+            <label className="model-field">Recorded outcome
+              <select value={verificationOutcome} onChange={(event) => setVerificationOutcome(event.target.value as "pass" | "fail" | "inconclusive")}>
+                <option value="inconclusive">Inconclusive</option><option value="pass">Pass</option><option value="fail">Fail</option>
+              </select>
+            </label>
+            <label className="model-field">Evidence reference (optional)<input value={verificationReference} onChange={(event) => setVerificationReference(event.target.value)} placeholder="Report URL or document reference" maxLength={1000} /></label>
+          </div>
+          <label className="model-field">Verification summary<textarea value={verificationSummary} onChange={(event) => setVerificationSummary(event.target.value)} rows={2} maxLength={3000} placeholder="Describe the test, analysis or inspection and its result." /></label>
+          <button className="inspect-button model-button" type="button" onClick={createVerificationRecord} disabled={verificationState === "calculating" || !selectedProject.revision.draft.requirements.length}>
+            {verificationState === "calculating" ? <LoaderCircle size={16} className="spin" /> : <FileCheck2 size={16} />}
+            {verificationState === "calculating" ? "Saving evidence..." : "Add verification evidence"}
+          </button>
+          <div className="run-list">
+            {verificationRecords.map((record) => <div className="run-row" key={record.verification_id}><div className="run-row-main"><strong>{record.requirement_id} · {record.outcome.toUpperCase()}</strong><span>{record.method} · {record.performed_by}</span><small>{record.summary}</small></div></div>)}
+            {verificationRecords.length === 0 && <p className="run-empty">No verification evidence recorded for this project.</p>}
+          </div>
         </div>}
       </section>
 
