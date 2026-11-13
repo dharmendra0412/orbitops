@@ -26,6 +26,7 @@ The `engineering-grade-foundation` branch establishes the initial application fo
 - Eight-planet destination taxonomy and seven mission archetypes via `GET /api/v1/missions/catalog`; feasibility remains unassessed.
 - Persistent mission project workspaces with typed objectives and requirements, immutable numbered revisions, and paginated project listing/retrieval.
 - Append-only requirement verification evidence records linked to the latest project revision, with method consistency checks and evidence references.
+- Frontend requirement authoring and verification-evidence capture/listing for mission projects.
 - Engineering-value contracts with unit dimension and provenance metadata.
 - Versioned ideal rocket-equation model with source-traceable standard gravity and explicit unvalidated limitations.
 - Constant-power energy balance model for a fixed interval, with traceable inputs and explicit battery/mission exclusions.
