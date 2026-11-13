@@ -24,6 +24,9 @@ The `engineering-grade-foundation` branch establishes the initial application fo
 ## Implemented foundation
 
 - Eight-planet destination taxonomy and seven mission archetypes via `GET /api/v1/missions/catalog`; feasibility remains unassessed.
+- Persistent mission project workspaces with typed objectives and requirements, immutable numbered revisions, and paginated project listing/retrieval.
+- Append-only requirement verification evidence records linked to the latest project revision, with method consistency checks and evidence references.
+- Frontend requirement authoring and verification-evidence capture/listing for mission projects.
 - Engineering-value contracts with unit dimension and provenance metadata.
 - Versioned ideal rocket-equation model with source-traceable standard gravity and explicit unvalidated limitations.
 - Constant-power energy balance model for a fixed interval, with traceable inputs and explicit battery/mission exclusions.
@@ -61,6 +64,17 @@ npm run dev
 ```
 
 The Vite development server proxies `/api` requests to `http://127.0.0.1:8000`. Set `VITE_API_BASE_URL` in `frontend/.env.local` only when the API is hosted on a different origin. Configure the backend CORS allowlist for that deployed frontend origin.
+
+## Mission project API
+
+- `POST /api/v1/missions/projects` — create a mission workspace and immutable revision 1.
+- `GET /api/v1/missions/projects` — list mission workspaces with limit/offset pagination.
+- `GET /api/v1/missions/projects/{project_id}` — retrieve the latest project revision.
+- `POST /api/v1/missions/projects/{project_id}/revisions` — append a new immutable revision without overwriting prior definitions.
+- `POST /api/v1/missions/projects/{project_id}/verification-records` — append verification evidence for a requirement in the latest revision.
+- `GET /api/v1/missions/projects/{project_id}/verification-records` — list recorded evidence for the project.
+
+Mission requirements include a category, statement, acceptance criteria, verification method and optional source reference. Verification records capture method, outcome, performer, date, summary and optional evidence reference; records are append-only and are not equivalent to independent approval or mission certification. Creating a project records intent; it does not establish technical feasibility, verification completion or flight readiness. Authentication and per-user/team authorization are not yet implemented, so this API is a development foundation and must not be exposed as a multi-tenant production service.
 
 ## Dataset API
 
