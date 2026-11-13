@@ -39,6 +39,7 @@ The engineering-grade foundation, mission workspaces, spacecraft configuration, 
 - Versioned ideal rocket-equation, constant-average-power energy-balance, and two-body Keplerian orbital mechanics models; all remain unvalidated.
 - Append-only SQLite model-run registry preserving inputs, outputs, equation/model versions, assumptions and limitations.
 - Dataset manifest validation, immutable metadata registry and bounded SHA-256 upload inspection (100 MiB maximum); uploaded bytes are not persisted.
+- Bounded PDS4 XML label metadata inspection (5 MiB maximum), rejecting DTD/entity declarations and limiting XML nesting/element count; referenced science-data files are not inspected.
 
 Spacecraft budget calculations are transparent arithmetic summaries, not an integrated spacecraft simulation. They do not model batteries, eclipses, transients, conversion losses, degradation, thermal coupling or component interactions. Schema validation does not authenticate user-supplied source material or certify component suitability.
 
@@ -113,6 +114,12 @@ Requirement allocations are append-only and must reference a requirement in the 
 - `GET /api/v1/models/governance/catalog` — list registered model versions and derived credibility states.
 - `POST /api/v1/models/governance/assessments` — append verification or validation evidence for a registered model version.
 - `GET /api/v1/models/governance/assessments` — list model assessment records, optionally filtered by model ID/version.
+
+### PDS4 label inspection API
+
+- `POST /api/v1/datasets/pds4/inspect` — inspect a small PDS4 XML label and extract selected identification, observation, file, and array metadata. The frontend includes a PDS4 label upload and metadata preview panel.
+
+This endpoint is a metadata preview only. It does not perform authoritative PDS4 schema validation, scientific data validation, source authentication, or coordinate/time-system interpretation.
 
 ## Engineering integrity rules
 
