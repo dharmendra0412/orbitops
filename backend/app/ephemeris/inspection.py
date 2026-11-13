@@ -52,13 +52,17 @@ def inspect_artifact(
     backend_root = Path(__file__).resolve().parents[2]
     try:
         completed = subprocess.run(
-            [sys.executable, str(worker_path), str(resolved_path), expected_type],
+            [sys.executable, "-I", str(worker_path), str(resolved_path), expected_type],
             cwd=backend_root,
             capture_output=True,
             text=True,
             check=False,
             timeout=MAX_INSPECTION_SECONDS,
-            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+            env={
+                "PATH": os.environ.get("PATH", ""),
+                "PYTHONDONTWRITEBYTECODE": "1",
+                **{key: os.environ[key] for key in ("SYSTEMROOT", "WINDIR", "TEMP", "TMP") if key in os.environ},
+            },
         )
     except subprocess.TimeoutExpired as error:
         raise SpiceInspectionError("SPICE inspection exceeded its time limit") from error
