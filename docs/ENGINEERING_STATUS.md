@@ -1,9 +1,9 @@
 # ORBITOPS Engineering Status
 
 **Snapshot date:** 2026-11-13  
-**Branch:** feature/mission-review-package  
+**Branch:** feature/project-evidence-linking  
 **Product scope:** Multi-planetary mission engineering foundation  
-**Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and requirement-to-component traceability, and model verification/validation evidence governance, and historical revision change-impact analysis, and frontend checksum-to-manifest registration workflow, and consolidated mission review package implemented; engineering acceptance remains pending.
+**Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and requirement-to-component traceability, and model verification/validation evidence governance, and historical revision change-impact analysis, and frontend checksum-to-manifest registration workflow, and consolidated mission review package, and project-scoped dataset/model evidence associations implemented; engineering acceptance remains pending.
 
 ## Implemented
 
@@ -13,7 +13,8 @@
 - Dataset manifest validation and immutable SQLite metadata registry.
 - SHA-256 file inspection with a 100 MiB limit; uploaded file bytes are not persisted.
 - Frontend dataset registration workflow that uses the inspected checksum to create source manifests and browse registered dataset metadata.
-- Consolidated project review package endpoint and frontend JSON export for mission revision, spacecraft configuration, budgets, traceability, and requirement verification evidence.
+- Consolidated project review package endpoint and frontend JSON export for mission revision, spacecraft configuration, budgets, traceability, requirement verification evidence, and project-linked dataset/model assessment records.
+- Append-only project evidence links that associate existing dataset manifests and model assessment records with mission projects.
 - SQLite model-run snapshots preserving inputs, outputs, model/equation IDs,
   assumptions, limitations and UTC run time.
 - Ideal Tsiolkovsky rocket-equation delta-v prototype (UNVALIDATED).
@@ -116,4 +117,13 @@ The workflow records metadata and file identity only. Uploaded file bytes are no
 
 - GET /api/v1/missions/projects/{project_id}/review-package — compile the latest mission project, spacecraft configuration (when present), mass/average-power bookkeeping, latest traceability matrix, and append-only requirement verification evidence into one response.
 
-The package derives an evidence completeness state: `incomplete`, `review_required`, or `evidence_compiled`. These are workflow labels only. `evidence_compiled` does not mean design approval, mission feasibility, flight readiness, or safety acceptance. Findings call out missing spacecraft configuration, unallocated requirements, missing evidence, stale allocations, failed evidence, and inconclusive evidence. Model assessments and dataset manifests are not yet linked to mission projects and are therefore excluded from this package. The frontend can export the package as JSON for review.
+The package derives an evidence completeness state: `incomplete`, `review_required`, or `evidence_compiled`. These are workflow labels only. `evidence_compiled` does not mean design approval, mission feasibility, flight readiness, or safety acceptance. Findings call out missing spacecraft configuration, unallocated requirements, missing evidence, stale allocations, failed evidence, and inconclusive evidence. Registered dataset manifests and model assessment records can now be linked to mission projects and are included as metadata references. Linking does not authenticate the source or prove scientific applicability. The frontend can export the package as JSON for review.
+
+## Project evidence association API
+
+- POST /api/v1/missions/projects/{project_id}/evidence/datasets — associate an existing registered dataset manifest with a mission project and record its purpose.
+- GET /api/v1/missions/projects/{project_id}/evidence/datasets — list linked dataset manifests and their project-specific purpose.
+- POST /api/v1/missions/projects/{project_id}/evidence/model-assessments — associate an existing model assessment with a mission project and record its rationale.
+- GET /api/v1/missions/projects/{project_id}/evidence/model-assessments — list linked model assessment records and their project-specific rationale.
+
+Associations are append-only and do not duplicate or modify the underlying manifest/assessment records. The review package now includes these linked references. Dataset source URLs, provider details, model assessment summaries, and evidence references remain user-entered metadata; linking does not independently authenticate them or validate scientific applicability.
