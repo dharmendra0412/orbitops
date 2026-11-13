@@ -8,6 +8,7 @@ from pathlib import Path
 
 from app.ephemeris.kernels import (
     SpiceKernelArtifactRecord,
+    SpiceKernelInspectionRecord,
     SpiceKernelRecord,
     SpiceKernelRegistration,
 )
@@ -39,6 +40,14 @@ class SpiceKernelStore:
                     payload_json TEXT NOT NULL,
                     acquired_at TEXT NOT NULL,
                     FOREIGN KEY(kernel_id) REFERENCES spice_kernel_registrations(kernel_id)
+                )
+            """)
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS spice_kernel_inspections (
+                    kernel_id TEXT PRIMARY KEY,
+                    payload_json TEXT NOT NULL,
+                    inspected_at TEXT NOT NULL,
+                    FOREIGN KEY(kernel_id) REFERENCES spice_kernel_artifacts(kernel_id)
                 )
             """)
 
@@ -105,3 +114,26 @@ class SpiceKernelStore:
                 (kernel_id,),
             ).fetchone()
         return SpiceKernelArtifactRecord.model_validate_json(row["payload_json"]) if row else None
+
+
+    def create_inspection(self, inspection: SpiceKernelInspectionRecord) -> SpiceKernelInspectionRecord:
+        payload = json.dumps(
+            inspection.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+        )
+        try:
+            with self._connection() as connection:
+                connection.execute(
+                    "INSERT INTO spice_kernel_inspections (kernel_id, payload_json, inspected_at) VALUES (?, ?, ?)",
+                    (inspection.kernel_id, payload, inspection.inspected_at.isoformat()),
+                )
+        except sqlite3.IntegrityError as error:
+            raise SpiceKernelAlreadyExistsError(inspection.kernel_id) from error
+        return inspection
+
+    def get_inspection(self, kernel_id: str) -> SpiceKernelInspectionRecord | None:
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT payload_json FROM spice_kernel_inspections WHERE kernel_id = ?",
+                (kernel_id,),
+            ).fetchone()
+        return SpiceKernelInspectionRecord.model_validate_json(row["payload_json"]) if row else None
