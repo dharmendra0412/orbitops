@@ -4,12 +4,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from app.orbital.mechanics import (
-    MODEL_ID,
-    HOHMANN_DELTA_V_EQUATION_ID,
     CircularOrbitRequest,
     EscapeVelocityRequest,
+    HOHMANN_DELTA_V_EQUATION_ID,
     HohmannTransferRequest,
     HohmannTransferResult,
+    MODEL_ID,
     OrbitalPeriodRequest,
     OrbitalScalarResult,
     VisVivaRequest,
