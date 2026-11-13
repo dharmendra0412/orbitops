@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = []
     database_path: Path = Path("data/orbitops.sqlite3")
+    spice_kernel_storage_path: Path = Path("data/spice-kernels")
 
 
 settings = Settings()

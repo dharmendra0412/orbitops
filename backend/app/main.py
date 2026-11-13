@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.engineering.routes import ingestion_router
 from app.engineering.routes import router as engineering_router
+from app.ephemeris.routes import router as spice_kernel_router
 from app.ingestion.pds4 import router as pds4_router
 from app.missions.model_governance_routes import router as model_governance_router
 from app.missions.project_evidence_routes import router as project_evidence_router
@@ -40,6 +41,7 @@ if settings.cors_origins:
 app.include_router(engineering_router, prefix="/api/v1")
 app.include_router(ingestion_router, prefix="/api/v1")
 app.include_router(pds4_router, prefix="/api/v1")
+app.include_router(spice_kernel_router, prefix="/api/v1")
 app.include_router(mission_catalog_router, prefix="/api/v1")
 app.include_router(mission_projects_router, prefix="/api/v1")
 app.include_router(project_evidence_router, prefix="/api/v1")

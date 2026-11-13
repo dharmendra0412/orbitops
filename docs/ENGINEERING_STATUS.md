@@ -1,7 +1,7 @@
 # ORBITOPS Engineering Status
 
 **Snapshot date:** 2026-11-13  
-**Branch:** feature/analytical-model-benchmarks  
+**Branch:** feature/spice-kernel-provenance  
 **Product scope:** Multi-planetary mission engineering foundation  
 **Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and requirement-to-component traceability, and model verification/validation evidence governance, and historical revision change-impact analysis, and frontend checksum-to-manifest registration workflow, and consolidated mission review package, and project-scoped dataset/model evidence associations, two-body Keplerian orbital mechanics prototypes, bounded PDS4 XML label inspection, and deterministic JPL-DE440-based orbital regression benchmarks implemented; independent engineering acceptance remains pending.
 
@@ -36,6 +36,12 @@
 - Frontend PDS4 metadata preview and explicit prefill of descriptive manifest fields; authoritative source identity, citations, licence, and science-file checksum remain separately supplied and verified by the user.
 - Deterministic orbital regression vectors using the JPL DE440 Earth GM for circular velocity, vis-viva, Keplerian period, escape velocity, and ideal Hohmann transfer.
 - Fixed synthetic numerical regression cases for ideal rocket-equation delta-v and constant-average-power energy balance.
+- Append-only SPICE kernel metadata registry with typed kernel families, source/release metadata, user-declared SHA-256, optional timezone-aware coverage, time-system, frame, target and terms fields.
+- Bounded SPICE kernel artifact upload (1 GiB application limit), server-computed SHA-256 comparison, temporary staging cleanup, and content-addressed local storage.
+- Pinned SpiceyPy/CSPICE 8.4.0 inspection subprocess with a 12-second timeout and best-effort POSIX resource limits; validates detected kernel family, extracts SPK object IDs/ET coverage, binary PCK frame IDs, and DSK object IDs. Meta-kernels are not furnished.
+- SPICE inspection results are immutable SQLite records; parsing is structural inspection only, not scientific validation.
+- PR #14 CI run #419 passed backend lint, all 125 backend tests, frontend TypeScript typecheck, and frontend production build (one existing Starlette/httpx deprecation warning).
+- PR #14 artifact-acquisition CI run #369 passed backend lint, all 121 backend tests, frontend TypeScript typecheck, and frontend production build.
 
 ## Spacecraft configuration API
 
@@ -153,6 +159,27 @@ The model requires SI inputs, including gravitational parameter in m^3/s^2 and o
 - PR #11 CI run #288 passed backend lint, 109 backend tests, frontend TypeScript typecheck, and frontend production build.
 - PR #12 CI run #295 passed backend lint, 110 backend tests, frontend TypeScript typecheck, and frontend production build.
 - PR #13 CI run #302 passed backend lint, all 110 backend tests, frontend TypeScript typecheck, and frontend production build, including the fixed propulsion and power regression assertions.
+- PR #14 CI run #479 passed backend lint, all 130 backend tests, frontend TypeScript typecheck, and frontend production build before the LSK size/in-worker digest hardening. Latest changes are awaiting CI.
 - PRs #1–#10 also have successful recorded CI runs on their current head commits.
 - These checks validate the recorded software build and regression suite only. They do not constitute independent scientific model validation, uncertainty characterization, mission applicability review, formal verification closure, or flight/safety approval.
 - The orbital regression vectors use the JPL DE440 Earth GM documented in [ORBITAL_REFERENCE_BENCHMARKS.md](ORBITAL_REFERENCE_BENCHMARKS.md); the orbital model itself remains UNVALIDATED.
+
+
+## SPICE kernel provenance registry
+
+- `POST /api/v1/ephemeris/spice/kernels` — append a user-declared kernel metadata record.
+- `GET /api/v1/ephemeris/spice/kernels` — list records with limit/offset pagination.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}` — retrieve one immutable record.
+
+The registration contract supports SPK, PCK, LSK, FK, IK, SCLK, DSK, and meta-kernel (MK) classifications. It records source URL, provider, release, user-declared SHA-256, optional timezone-aware coverage bounds, time system, reference frames, target names, and licence/terms. Duplicate IDs are rejected; registrations are append-only. The registry does not download or store kernel binaries, compute the checksum, authenticate source/terms, inspect kernel contents, or validate coverage/frame declarations. Every record is explicitly marked `user_declared_unverified`.
+
+Registration remains user-declared metadata and does not authenticate source/terms. Artifact acquisition accepts explicit uploads and computes the digest, but only compares it with the user-declared value. Inspection uses pinned SpiceyPy/CSPICE 8.4.0 in a time-limited subprocess and extracts selected metadata; this is not a complete OS sandbox or scientific validation. A test-only frozen NAIF `naif0012.tls` fixture checks the J2000 TDB/UTC reference epoch. The bounded bidirectional UTC-to-ET and ET-to-UTC APIs require an acquired and inspected KPL/LSK, re-hash the artifact, load only that LSK in a separate worker, and persist immutable results with conversion direction, input, exact artifact digest and toolkit version. LSK conversion artifacts are capped at 10 MiB and re-hashed in both parent and worker. A bounded fixed-frame transform API uses one acquired/inspected KPL/FK and supports only inertial class-1 and fixed-offset TK class-4 frames, with PXFORM position and SXFORM state matrices; PCK/CK/dynamic/switch frames and multi-kernel dependencies remain unsupported. The fixture's leap-second table ends at 2017-01-01 and must not be treated as a current operational LSK.
+
+
+## SPICE artifact acquisition
+
+- `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact` accepts an explicit multipart upload, computes SHA-256 in 1 MiB chunks, rejects mismatches, and stores matching bytes under a content-addressed key.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact` returns acquisition metadata only.
+- The source URL is never fetched. The digest match is against a user-declared value and does not independently authenticate publisher or checksum provenance.
+- Uploads are capped at 1 GiB in the application. A deployment must also configure upstream request-body limits and protect the storage volume.
+- Pinned CSPICE inspection and bidirectional single-LSK UTC-to-ET / ET-to-UTC conversion are implemented. A bounded fixed-offset FK transformation API supports position and state matrices using one explicitly acquired and inspected KPL/FK. PCK/CK/dynamic/switch frames, multi-kernel dependency sets, ephemeris evaluation, trajectory propagation, uncertainty analysis, and scientific validation remain unimplemented. The worker is not a complete OS sandbox. Authentication and per-user/team authorization are still absent.

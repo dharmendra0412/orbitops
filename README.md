@@ -125,6 +125,23 @@ Requirement allocations are append-only and must reference a requirement in the 
 - Fixed regression vectors use the JPL DE440 Earth gravitational parameter and exercise circular velocity, vis-viva speed, Keplerian period, escape velocity, and ideal Hohmann transfer outputs.
 - See [orbital reference benchmarks](docs/ORBITAL_REFERENCE_BENCHMARKS.md) for the constant, test geometry, expected outputs, source, and validation boundaries. These checks are software regression evidence; orbital model credibility remains UNVALIDATED.
 
+
+### SPICE kernel provenance, artifact acquisition, and inspection
+
+- `POST /api/v1/ephemeris/spice/kernels` — register user-declared kernel identity, type, source URL, release, SHA-256, optional coverage, time system, frames, targets, and terms.
+- `GET /api/v1/ephemeris/spice/kernels` — list registrations with limit/offset pagination.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}` — retrieve one immutable registration.
+- `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact` — upload a kernel binary, compute SHA-256 server-side, and persist it only when it matches the registered digest (1 GiB application limit).
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact` — retrieve artifact acquisition metadata.
+- `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection` — inspect the acquired kernel with pinned SpiceyPy/CSPICE 8.4.0.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection` — retrieve the immutable inspection result.
+- `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/time-conversions` — convert an explicitly UTC-tagged time using one acquired and inspected LSK.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/time-conversions` — list immutable conversion records.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/time-conversions/{conversion_id}` — retrieve one conversion record.
+
+Inspection re-hashes the stored artifact, verifies the detected kernel family, extracts SPK object IDs and raw ET coverage intervals, binary PCK frame class IDs, and DSK object IDs. Other registered types receive header/type inspection only. Parsing and UTC-to-ET conversion run in separate time-limited subprocesses with best-effort POSIX resource limits. The conversion worker loads only the selected inspected LSK; meta-kernels are never furnished or loaded. Each conversion record captures the input UTC, ET seconds past J2000 TDB, normalized UTC, exact artifact digest, and toolkit version.
+
+A digest match proves only that uploaded bytes match the user-declared digest; it does not independently authenticate the publisher or checksum source. Subprocess limits are not a complete OS sandbox, and CSPICE metadata inspection/time conversion is not scientific validation. The included NAIF `naif0012.tls` reference fixture is a frozen test snapshot ending at 2017-01-01, not a current operational leap-second kernel. Authentication and per-user/team authorization are not implemented. PCK/CK/SCLK dependency sets, dynamic frames, and ephemeris evaluation remain out of scope. See [SPICE kernel provenance and inspection](docs/SPICE_KERNEL_PROVENANCE.md) for scope and remaining gates.
 ### PDS4 label inspection API
 
 - `POST /api/v1/datasets/pds4/inspect` — inspect a small PDS4 XML label and extract selected identification, observation, file, and array metadata. The frontend includes a PDS4 label upload and metadata preview panel.
