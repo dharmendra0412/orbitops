@@ -88,7 +88,7 @@ def test_verified_snapshot_uses_the_open_descriptor_if_source_path_is_replaced(
     def open_then_replace(path, flags, *args, **kwargs):
         nonlocal replaced
         descriptor = real_open(path, flags, *args, **kwargs)
-        if Path(path) == source and not replaced:
+        if path == source.name and kwargs.get("dir_fd") is not None and not replaced:
             os.replace(replacement_path, source)
             replaced = True
         return descriptor
