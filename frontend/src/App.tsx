@@ -656,6 +656,10 @@ export default function App() {
       setSpacecraftComponents([]);
       setSpacecraftError("");
       setSpacecraftState("idle");
+      setProjectDatasetLinks([]);
+      setProjectModelAssessmentLinks([]);
+      setReviewPackage(null);
+      setReviewPackageError("");
       setProjectState("success");
       await refreshMissionProjects();
     } catch (error) {
@@ -670,6 +674,9 @@ export default function App() {
       const result = await response.json();
       if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to load mission project");
       setSelectedProject(result as MissionProjectRecord);
+      setProjectDatasetLinks([]);
+      setProjectModelAssessmentLinks([]);
+      setReviewPackage(null);
       setTargetMissionRevision(String(result.latest_revision));
       await refreshVerificationRecords(projectId);
       await refreshSpacecraft(projectId);
