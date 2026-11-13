@@ -135,10 +135,13 @@ Requirement allocations are append-only and must reference a requirement in the 
 - `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact` — retrieve artifact acquisition metadata.
 - `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection` — inspect the acquired kernel with pinned SpiceyPy/CSPICE 8.4.0.
 - `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection` — retrieve the immutable inspection result.
+- `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/time-conversions` — convert an explicitly UTC-tagged time using one acquired and inspected LSK.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/time-conversions` — list immutable conversion records.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/time-conversions/{conversion_id}` — retrieve one conversion record.
 
-Inspection re-hashes the stored artifact, verifies the detected kernel family, extracts SPK object IDs and raw ET coverage intervals, binary PCK frame class IDs, and DSK object IDs. Other registered types receive header/type inspection only. Parsing runs in a time-limited subprocess with best-effort POSIX resource limits. Meta-kernels are never furnished or loaded.
+Inspection re-hashes the stored artifact, verifies the detected kernel family, extracts SPK object IDs and raw ET coverage intervals, binary PCK frame class IDs, and DSK object IDs. Other registered types receive header/type inspection only. Parsing and UTC-to-ET conversion run in separate time-limited subprocesses with best-effort POSIX resource limits. The conversion worker loads only the selected inspected LSK; meta-kernels are never furnished or loaded. Each conversion record captures the input UTC, ET seconds past J2000 TDB, normalized UTC, exact artifact digest, and toolkit version.
 
-A digest match proves only that uploaded bytes match the user-declared digest; it does not independently authenticate the publisher or checksum source. Subprocess limits are not a complete OS sandbox, and CSPICE metadata inspection is not scientific validation. Authentication and per-user/team authorization are not implemented. See [SPICE kernel provenance and inspection](docs/SPICE_KERNEL_PROVENANCE.md) for scope and remaining gates.
+A digest match proves only that uploaded bytes match the user-declared digest; it does not independently authenticate the publisher or checksum source. Subprocess limits are not a complete OS sandbox, and CSPICE metadata inspection/time conversion is not scientific validation. The included NAIF `naif0012.tls` reference fixture is a frozen test snapshot ending at 2017-01-01, not a current operational leap-second kernel. Authentication and per-user/team authorization are not implemented. See [SPICE kernel provenance and inspection](docs/SPICE_KERNEL_PROVENANCE.md) for scope and remaining gates.
 ### PDS4 label inspection API
 
 - `POST /api/v1/datasets/pds4/inspect` — inspect a small PDS4 XML label and extract selected identification, observation, file, and array metadata. The frontend includes a PDS4 label upload and metadata preview panel.
