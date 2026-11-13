@@ -17,6 +17,7 @@ def test_namespaced_label_extracts_identification_and_array_metadata():
     assert response.status_code == 200
     body = response.json()
     assert body["root_element"] == "Product_Observational"
+    assert body["product_class"] == "Product_Observational"
     assert body["identification_area"]["logical_identifier"] == "urn:nasa:pds:demo"
     assert body["file_areas"][0]["file"]["file_name"] == "image.img"
     assert body["file_areas"][0]["arrays"][0]["axis_arrays"][0]["elements"] == "64"
