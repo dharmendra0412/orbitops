@@ -1,7 +1,7 @@
 # ORBITOPS Engineering Status
 
 **Snapshot date:** 2026-11-13  
-**Branch:** feature/analytical-model-benchmarks  
+**Branch:** feature/spice-kernel-provenance  
 **Product scope:** Multi-planetary mission engineering foundation  
 **Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and requirement-to-component traceability, and model verification/validation evidence governance, and historical revision change-impact analysis, and frontend checksum-to-manifest registration workflow, and consolidated mission review package, and project-scoped dataset/model evidence associations, two-body Keplerian orbital mechanics prototypes, bounded PDS4 XML label inspection, and deterministic JPL-DE440-based orbital regression benchmarks implemented; independent engineering acceptance remains pending.
 
@@ -35,7 +35,7 @@
 - Bounded PDS4 XML label inspection endpoint with namespace-tolerant metadata extraction, PDS4 Product_* root checks, DTD/entity rejection, 5 MiB upload cap, and XML node/depth limits.
 - Frontend PDS4 metadata preview and explicit prefill of descriptive manifest fields; authoritative source identity, citations, licence, and science-file checksum remain separately supplied and verified by the user.
 - Deterministic orbital regression vectors using the JPL DE440 Earth GM for circular velocity, vis-viva, Keplerian period, escape velocity, and ideal Hohmann transfer.
-- Fixed synthetic numerical regression cases for ideal rocket-equation delta-v and constant-average-power energy balance.
+- Fixed synthetic numerical regression cases for ideal rocket-equation delta-v and constant-average-power energy balance.\n- Append-only SPICE kernel metadata registry with typed kernel families, source/release metadata, user-declared SHA-256, optional timezone-aware coverage, time-system, frame, target and terms fields.
 
 ## Spacecraft configuration API
 
@@ -156,3 +156,14 @@ The model requires SI inputs, including gravitational parameter in m^3/s^2 and o
 - PRs #1–#10 also have successful recorded CI runs on their current head commits.
 - These checks validate the recorded software build and regression suite only. They do not constitute independent scientific model validation, uncertainty characterization, mission applicability review, formal verification closure, or flight/safety approval.
 - The orbital regression vectors use the JPL DE440 Earth GM documented in [ORBITAL_REFERENCE_BENCHMARKS.md](ORBITAL_REFERENCE_BENCHMARKS.md); the orbital model itself remains UNVALIDATED.
+
+
+## SPICE kernel provenance registry
+
+- `POST /api/v1/ephemeris/spice/kernels` — append a user-declared kernel metadata record.
+- `GET /api/v1/ephemeris/spice/kernels` — list records with limit/offset pagination.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}` — retrieve one immutable record.
+
+The registration contract supports SPK, PCK, LSK, FK, IK, SCLK, DSK, and meta-kernel (MK) classifications. It records source URL, provider, release, user-declared SHA-256, optional timezone-aware coverage bounds, time system, reference frames, target names, and licence/terms. Duplicate IDs are rejected; registrations are append-only. The registry does not download or store kernel binaries, compute the checksum, authenticate source/terms, inspect kernel contents, or validate coverage/frame declarations. Every record is explicitly marked `user_declared_unverified`.
+
+Next integration gates are independent checksum verification of a downloaded artifact, secure and provenance-preserving storage, kernel-format inspection, controlled SPICE toolkit integration, time-system/frame transformation tests, and reference-vector comparison against authoritative NAIF examples. Until those gates exist, no ephemeris query or trajectory result is claimed.
