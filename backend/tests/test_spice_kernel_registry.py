@@ -545,3 +545,169 @@ def test_time_conversion_rejects_oversized_lsk_before_worker(tmp_path, monkeypat
         assert "conversion limit" in converted.json()["detail"]
     finally:
         clear_overrides()
+
+
+
+def test_fixed_fk_position_and_state_transformations_match_reference_rotation(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", tmp_path / "artifacts")
+    fixture = Path(__file__).parent / "fixtures" / "orbitops_fixed_frame_reference.tf"
+    content = fixture.read_bytes()
+    registration = payload("fixed-frame-reference")
+    registration["file_name"] = "orbitops_fixed_frame_reference.tf"
+    registration["kernel_type"] = "FK"
+    registration["source_url"] = "https://example.invalid/orbitops_fixed_frame_reference.tf"
+    registration["sha256"] = hashlib.sha256(content).hexdigest()
+    try:
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=registration).status_code == 201
+        uploaded = client.post(
+            "/api/v1/ephemeris/spice/kernels/fixed-frame-reference/artifact",
+            files={"upload": ("orbitops_fixed_frame_reference.tf", content, "text/plain")},
+        )
+        assert uploaded.status_code == 201
+        inspected = client.post(
+            "/api/v1/ephemeris/spice/kernels/fixed-frame-reference/inspection"
+        )
+        assert inspected.status_code == 201
+        assert inspected.json()["detected_architecture"] == "KPL"
+        assert inspected.json()["detected_kernel_type"] == "FK"
+
+        position = client.post(
+            "/api/v1/ephemeris/spice/kernels/fixed-frame-reference/frame-transformations",
+            json={
+                "from_frame": "J2000",
+                "to_frame": "ORBITOPS_TEST_FIXED",
+                "et_seconds": 0.0,
+                "transform_type": "position",
+                "vector": [1.0, 0.0, 0.0],
+            },
+        )
+        assert position.status_code == 201, position.text
+        position_body = position.json()
+        assert position_body["artifact_sha256"] == registration["sha256"]
+        assert position_body["transform_type"] == "position"
+        assert position_body["matrix"] == [
+            [0.0, 1.0, 0.0],
+            [-1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+        assert position_body["output_vector"] == [0.0, -1.0, 0.0]
+
+        state = client.post(
+            "/api/v1/ephemeris/spice/kernels/fixed-frame-reference/frame-transformations",
+            json={
+                "from_frame": "J2000",
+                "to_frame": "ORBITOPS_TEST_FIXED",
+                "et_seconds": 123.0,
+                "transform_type": "state",
+                "vector": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+            },
+        )
+        assert state.status_code == 201, state.text
+        state_body = state.json()
+        assert len(state_body["matrix"]) == 6
+        assert all(len(row) == 6 for row in state_body["matrix"])
+        assert state_body["output_vector"] == [0.0, -1.0, 0.0, 0.0, -1.0, 0.0]
+
+        history = client.get(
+            "/api/v1/ephemeris/spice/kernels/fixed-frame-reference/frame-transformations"
+        )
+        assert history.status_code == 200
+        assert len(history.json()) == 2
+        retrieved = client.get(
+            "/api/v1/ephemeris/spice/kernels/fixed-frame-reference/frame-transformations/"
+            + position_body["transformation_id"]
+        )
+        assert retrieved.status_code == 200
+        assert retrieved.json()["matrix"] == position_body["matrix"]
+    finally:
+        clear_overrides()
+
+
+def test_frame_transform_rejects_unknown_frame_and_non_fk_kernel(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", tmp_path / "artifacts")
+    fixture = Path(__file__).parent / "fixtures" / "orbitops_fixed_frame_reference.tf"
+    content = fixture.read_bytes()
+    registration = payload("bad-frame-request")
+    registration["file_name"] = "orbitops_fixed_frame_reference.tf"
+    registration["kernel_type"] = "FK"
+    registration["sha256"] = hashlib.sha256(content).hexdigest()
+    try:
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=registration).status_code == 201
+        assert client.post(
+            "/api/v1/ephemeris/spice/kernels/bad-frame-request/artifact",
+            files={"upload": ("orbitops_fixed_frame_reference.tf", content, "text/plain")},
+        ).status_code == 201
+        assert client.post(
+            "/api/v1/ephemeris/spice/kernels/bad-frame-request/inspection"
+        ).status_code == 201
+
+        unknown = client.post(
+            "/api/v1/ephemeris/spice/kernels/bad-frame-request/frame-transformations",
+            json={
+                "from_frame": "J2000",
+                "to_frame": "FRAME_THAT_DOES_NOT_EXIST",
+                "et_seconds": 0.0,
+            },
+        )
+        assert unknown.status_code == 422
+        invalid_vector = client.post(
+            "/api/v1/ephemeris/spice/kernels/bad-frame-request/frame-transformations",
+            json={
+                "from_frame": "J2000",
+                "to_frame": "ORBITOPS_TEST_FIXED",
+                "et_seconds": 0.0,
+                "transform_type": "position",
+                "vector": [1.0, 2.0],
+            },
+        )
+        assert invalid_vector.status_code == 422
+
+        not_fk = payload("not-a-frame-kernel")
+        not_fk["kernel_type"] = "SPK"
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=not_fk).status_code == 201
+        rejected = client.post(
+            "/api/v1/ephemeris/spice/kernels/not-a-frame-kernel/frame-transformations",
+            json={"from_frame": "J2000", "to_frame": "ORBITOPS_TEST_FIXED", "et_seconds": 0.0},
+        )
+        assert rejected.status_code == 409
+    finally:
+        clear_overrides()
+
+
+def test_frame_transform_rejects_fk_artifact_tampering(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", tmp_path / "artifacts")
+    fixture = Path(__file__).parent / "fixtures" / "orbitops_fixed_frame_reference.tf"
+    content = fixture.read_bytes()
+    registration = payload("tampered-frame-fk")
+    registration["file_name"] = "orbitops_fixed_frame_reference.tf"
+    registration["kernel_type"] = "FK"
+    registration["sha256"] = hashlib.sha256(content).hexdigest()
+    try:
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=registration).status_code == 201
+        uploaded = client.post(
+            "/api/v1/ephemeris/spice/kernels/tampered-frame-fk/artifact",
+            files={"upload": ("orbitops_fixed_frame_reference.tf", content, "text/plain")},
+        )
+        assert uploaded.status_code == 201
+        assert client.post(
+            "/api/v1/ephemeris/spice/kernels/tampered-frame-fk/inspection"
+        ).status_code == 201
+        (tmp_path / "artifacts" / uploaded.json()["storage_key"]).write_bytes(b"tampered FK")
+
+        response = client.post(
+            "/api/v1/ephemeris/spice/kernels/tampered-frame-fk/frame-transformations",
+            json={"from_frame": "J2000", "to_frame": "ORBITOPS_TEST_FIXED", "et_seconds": 0.0},
+        )
+        assert response.status_code == 422
+        assert "no longer matches" in response.json()["detail"]
+    finally:
+        clear_overrides()
