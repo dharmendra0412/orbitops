@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.engineering.routes import ingestion_router
 from app.engineering.routes import router as engineering_router
-from app.missions.routes import router as mission_catalog_router
 from app.missions.project_routes import router as mission_projects_router
+from app.missions.routes import router as mission_catalog_router
 from app.missions.verification_routes import router as mission_verification_router
 from app.power.routes import router as power_router
 from app.propulsion.routes import router as propulsion_router
