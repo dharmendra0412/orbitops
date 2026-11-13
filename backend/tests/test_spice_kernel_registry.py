@@ -870,3 +870,44 @@ def test_artifact_upload_rejects_hardlinked_existing_content_without_chmod_side_
         assert external_alias.read_bytes() == content
     finally:
         clear_overrides()
+
+
+
+def test_concurrent_artifact_publication_serializes_deduplication(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+
+    content = b"concurrent publication must leave one immutable artifact"
+    digest = hashlib.sha256(content).hexdigest()
+    staging = tmp_path / ".staging"
+    artifact_directory = tmp_path / "sha256" / digest[:2]
+    staging.mkdir()
+    artifact_directory.mkdir(parents=True)
+    temporary_names = ("first.part", "second.part")
+    for name in temporary_names:
+        (staging / name).write_bytes(content)
+
+    def publish(name):
+        staging_fd = os.open(staging, os.O_RDONLY | os.O_DIRECTORY)
+        artifact_fd = os.open(artifact_directory, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            spice_routes._publish_content_addressed_artifact(
+                name,
+                staging_fd,
+                artifact_fd,
+                expected_sha256=digest,
+                expected_size=len(content),
+            )
+        finally:
+            os.close(staging_fd)
+            os.close(artifact_fd)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(publish, name) for name in temporary_names]
+        for future in futures:
+            future.result()
+
+    artifact = artifact_directory / digest
+    assert artifact.read_bytes() == content
+    assert artifact.stat().st_nlink == 1
+    assert artifact.stat().st_mode & 0o777 == 0o444
+    assert list(staging.iterdir()) == []
