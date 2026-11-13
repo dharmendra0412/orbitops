@@ -36,8 +36,8 @@ class SpacecraftComponent(BaseModel):
     mass: EngineeringValue
     power_draw: EngineeringValue | None = None
     power_generation: EngineeringValue | None = None
-    load_duty_cycle: float = Field(default=1.0, ge=0.0, le=1.0)
-    generation_duty_cycle: float = Field(default=1.0, ge=0.0, le=1.0)
+    load_duty_cycle: float = Field(ge=0.0, le=1.0)
+    generation_duty_cycle: float = Field(ge=0.0, le=1.0)
     notes: Annotated[str, Field(max_length=2000)] | None = None
 
     @model_validator(mode="after")
