@@ -10,11 +10,14 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 
 from app.ephemeris.inspection import SpiceInspectionError, inspect_artifact
+from app.ephemeris.time_conversion import SpiceTimeConversionError, convert_utc_to_et
 from app.ephemeris.kernels import (
     SpiceKernelArtifactRecord,
     SpiceKernelInspectionRecord,
     SpiceKernelRecord,
     SpiceKernelRegistration,
+    SpiceTimeConversionRecord,
+    SpiceUtcToEtRequest,
 )
 from app.settings import settings
 from app.storage.spice_kernels import SpiceKernelAlreadyExistsError, SpiceKernelStore
@@ -220,3 +223,84 @@ def get_spice_kernel_inspection(
     if inspection is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Kernel inspection not found")
     return inspection
+
+@router.post(
+    "/{kernel_id}/time-conversions",
+    response_model=SpiceTimeConversionRecord,
+    status_code=status.HTTP_201_CREATED,
+)
+def convert_spice_utc_to_et(
+    kernel_id: str,
+    payload: SpiceUtcToEtRequest,
+    store: Annotated[SpiceKernelStore, Depends(get_spice_kernel_store)],
+) -> SpiceTimeConversionRecord:
+    """Convert an explicitly UTC-tagged instant using one acquired and inspected LSK."""
+    registration = store.get(kernel_id)
+    if registration is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SPICE kernel not found")
+    if registration.registration.kernel_type.value != "LSK":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="UTC-to-ET conversion requires a registered LSK kernel",
+        )
+
+    artifact = store.get_artifact(kernel_id)
+    inspection = store.get_inspection(kernel_id)
+    if artifact is None or inspection is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Acquire and inspect the LSK artifact before time conversion",
+        )
+    if inspection.detected_architecture.upper() != "KPL" or inspection.detected_kernel_type.upper() != "LSK":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The inspected artifact is not a compatible text LSK",
+        )
+
+    try:
+        conversion = convert_utc_to_et(
+            kernel_id=kernel_id,
+            utc_time=payload.utc_time,
+            expected_sha256=artifact.sha256,
+            storage_root=settings.spice_kernel_storage_path,
+        )
+        return store.create_time_conversion(conversion)
+    except SpiceTimeConversionError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
+
+
+@router.get(
+    "/{kernel_id}/time-conversions",
+    response_model=list[SpiceTimeConversionRecord],
+)
+def list_spice_time_conversions(
+    kernel_id: str,
+    store: Annotated[SpiceKernelStore, Depends(get_spice_kernel_store)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[SpiceTimeConversionRecord]:
+    """List immutable time-conversion records for one registered kernel."""
+    if store.get(kernel_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SPICE kernel not found")
+    return store.list_time_conversions(kernel_id, limit=limit, offset=offset)
+
+
+@router.get(
+    "/{kernel_id}/time-conversions/{conversion_id}",
+    response_model=SpiceTimeConversionRecord,
+)
+def get_spice_time_conversion(
+    kernel_id: str,
+    conversion_id: str,
+    store: Annotated[SpiceKernelStore, Depends(get_spice_kernel_store)],
+) -> SpiceTimeConversionRecord:
+    """Retrieve one immutable UTC-to-ET conversion record."""
+    if store.get(kernel_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SPICE kernel not found")
+    conversion = store.get_time_conversion(conversion_id)
+    if conversion is None or conversion.kernel_id != kernel_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SPICE time conversion not found")
+    return conversion
