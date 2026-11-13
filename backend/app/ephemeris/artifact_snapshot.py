@@ -9,11 +9,12 @@ from pathlib import Path
 
 
 HASH_CHUNK_BYTES = 1024 * 1024
+_OPEN_SUPPORTS_DIR_FD = os.open in os.supports_dir_fd
 
 
 def _open_source_without_symlink_components(source_path: Path) -> int:
     """Open an absolute path by walking pinned directory descriptors without links."""
-    if os.name == "nt" or os.open not in os.supports_dir_fd:
+    if os.name == "nt" or not _OPEN_SUPPORTS_DIR_FD:
         return os.open(
             source_path,
             os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
