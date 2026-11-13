@@ -1,9 +1,9 @@
 # ORBITOPS Engineering Status
 
 **Snapshot date:** 2026-11-13  
-**Branch:** feature/revision-impact-analysis  
+**Branch:** feature/dataset-ingestion-workflow  
 **Product scope:** Multi-planetary mission engineering foundation  
-**Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and requirement-to-component traceability, and model verification/validation evidence governance, and historical revision change-impact analysis implemented; engineering acceptance remains pending.
+**Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and requirement-to-component traceability, and model verification/validation evidence governance, and historical revision change-impact analysis, and frontend checksum-to-manifest registration workflow implemented; engineering acceptance remains pending.
 
 ## Implemented
 
@@ -12,6 +12,7 @@
   credibility status, equation/model references, intended use and limitations.
 - Dataset manifest validation and immutable SQLite metadata registry.
 - SHA-256 file inspection with a 100 MiB limit; uploaded file bytes are not persisted.
+- Frontend dataset registration workflow that uses the inspected checksum to create source manifests and browse registered dataset metadata.
 - SQLite model-run snapshots preserving inputs, outputs, model/equation IDs,
   assumptions, limitations and UTC run time.
 - Ideal Tsiolkovsky rocket-equation delta-v prototype (UNVALIDATED).
@@ -103,3 +104,9 @@ The initial registry contains the ideal rocket-equation prototype and constant-p
 - GET /api/v1/missions/projects/{project_id}/traceability/change-impact — compare a baseline and target mission revision plus a baseline and target spacecraft configuration revision. All four revision numbers are required query parameters.
 
 The report identifies added, removed and modified mission requirements and spacecraft components. It flags current project-scoped allocations that reference modified or removed requirements/components. This is a review aid, not a technical acceptability decision. Allocation records are not revisioned, historical verification evidence is not automatically invalidated, and impact severity is not inferred. Reviewers must assess each affected allocation and evidence record.
+
+## Dataset ingestion workflow
+
+The frontend now connects bounded file checksum inspection to source dataset manifest registration. A manifest records provider, product ID, release/version, source URL, citation, retrieval time, file identity, media type, data format, file size, SHA-256 checksum, license/terms, access classification, and optional asset/frame/time metadata. Registered manifests can be browsed in the frontend.
+
+The workflow records metadata and file identity only. Uploaded file bytes are not persisted. The service does not download archive products, decode PDS/FITS/SPICE formats, transform coordinate/time systems, verify source authenticity, or assess scientific correctness. Product metadata and citations must be supplied from the authoritative archive/provider by the user.
