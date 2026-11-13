@@ -1,9 +1,9 @@
 import hashlib
 
+import spiceypy as spice
 from fastapi.testclient import TestClient
 
 import app.ephemeris.routes as spice_routes
-import spiceypy as spice
 from app.ephemeris.routes import get_spice_kernel_store
 from app.main import app
 from app.storage.spice_kernels import SpiceKernelStore
