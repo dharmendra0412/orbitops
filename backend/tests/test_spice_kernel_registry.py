@@ -206,3 +206,20 @@ def test_artifact_upload_requires_registered_kernel_and_rejects_second_upload(tm
         assert second.status_code == 409
     finally:
         clear_overrides()
+
+
+def test_artifact_upload_rejects_empty_file(tmp_path, monkeypatch):
+    configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", tmp_path / "artifacts")
+    registration = payload()
+    registration["sha256"] = hashlib.sha256(b"").hexdigest()
+    try:
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=registration).status_code == 201
+        response = client.post(
+            "/api/v1/ephemeris/spice/kernels/naif0012.tls/artifact",
+            files={"upload": ("empty.tls", b"", "application/octet-stream")},
+        )
+        assert response.status_code == 422
+        assert client.get("/api/v1/ephemeris/spice/kernels/naif0012.tls/artifact").status_code == 404
+    finally:
+        clear_overrides()
