@@ -106,6 +106,8 @@ class SpiceKernelStore:
                     (registration.kernel_id, payload, record.registered_at.isoformat()),
                 )
         except sqlite3.IntegrityError as error:
+            if "UNIQUE constraint failed" not in str(error):
+                raise
             raise SpiceKernelAlreadyExistsError(registration.kernel_id) from error
         return record
 
@@ -135,6 +137,8 @@ class SpiceKernelStore:
                     (artifact.kernel_id, payload, artifact.acquired_at.isoformat()),
                 )
         except sqlite3.IntegrityError as error:
+            if "UNIQUE constraint failed" not in str(error):
+                raise
             raise SpiceKernelAlreadyExistsError(artifact.kernel_id) from error
         return artifact
 
@@ -158,6 +162,8 @@ class SpiceKernelStore:
                     (inspection.kernel_id, payload, inspection.inspected_at.isoformat()),
                 )
         except sqlite3.IntegrityError as error:
+            if "UNIQUE constraint failed" not in str(error):
+                raise
             raise SpiceKernelAlreadyExistsError(inspection.kernel_id) from error
         return inspection
 
