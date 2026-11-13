@@ -1,5 +1,5 @@
 """Private immutable snapshots for verified content-addressed SPICE artifacts."""
-import hashlib
+import hashlib  # noqa: I001
 import os
 import stat
 import tempfile
