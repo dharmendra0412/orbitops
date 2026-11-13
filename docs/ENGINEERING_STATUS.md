@@ -36,7 +36,8 @@
 - Frontend PDS4 metadata preview and explicit prefill of descriptive manifest fields; authoritative source identity, citations, licence, and science-file checksum remain separately supplied and verified by the user.
 - Deterministic orbital regression vectors using the JPL DE440 Earth GM for circular velocity, vis-viva, Keplerian period, escape velocity, and ideal Hohmann transfer.
 - Fixed synthetic numerical regression cases for ideal rocket-equation delta-v and constant-average-power energy balance.
-- Append-only SPICE kernel metadata registry with typed kernel families, source/release metadata, user-declared SHA-256, optional timezone-aware coverage, time-system, frame, target and terms fields.\n- Bounded SPICE kernel artifact upload (1 GiB application limit), server-computed SHA-256 comparison, temporary staging cleanup, and content-addressed local storage; artifacts remain unparsed and unvalidated.
+- Append-only SPICE kernel metadata registry with typed kernel families, source/release metadata, user-declared SHA-256, optional timezone-aware coverage, time-system, frame, target and terms fields.
+- Bounded SPICE kernel artifact upload (1 GiB application limit), server-computed SHA-256 comparison, temporary staging cleanup, and content-addressed local storage; artifacts remain unparsed and unvalidated.
 
 ## Spacecraft configuration API
 
