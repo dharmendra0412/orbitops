@@ -1,5 +1,5 @@
 """Parent-process integrity checks and bounded invocation for SPICE frame transforms."""
-import hashlib
+import hashlib  # noqa: I001
 import json
 import os
 import subprocess
