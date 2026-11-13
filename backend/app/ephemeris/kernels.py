@@ -177,3 +177,52 @@ class SpiceEtToUtcRequest(BaseModel):
 
     et_seconds: Annotated[float, Field(allow_inf_nan=False)]
     precision: Annotated[int, Field(ge=0, le=6)] = 6
+
+
+class SpiceFrameTransformRequest(BaseModel):
+    """Position or state transformation through a single inspected fixed-frame FK."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    from_frame: Annotated[str, Field(min_length=1, max_length=80, pattern=r"^[A-Za-z0-9_+-]+$")]
+    to_frame: Annotated[str, Field(min_length=1, max_length=80, pattern=r"^[A-Za-z0-9_+-]+$")]
+    et_seconds: Annotated[float, Field(allow_inf_nan=False)]
+    transform_type: Literal["position", "state"] = "position"
+    vector: list[Annotated[float, Field(allow_inf_nan=False)]] | None = None
+
+    @model_validator(mode="after")
+    def vector_dimension_must_match_transform(self) -> "SpiceFrameTransformRequest":
+        if self.vector is not None:
+            expected = 3 if self.transform_type == "position" else 6
+            if len(self.vector) != expected:
+                raise ValueError(f"{self.transform_type} vector must contain exactly {expected} values")
+        return self
+
+
+class SpiceFrameTransformRecord(BaseModel):
+    """Immutable position/state frame transformation tied to one FK artifact."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    transformation_id: str = Field(default_factory=lambda: uuid4().hex)
+    kernel_id: str
+    artifact_sha256: str
+    toolkit_name: str = "SpiceyPy"
+    toolkit_version: str
+    from_frame: str
+    to_frame: str
+    et_seconds: float
+    transform_type: Literal["position", "state"]
+    matrix: list[list[float]]
+    input_vector: list[float] | None = None
+    output_vector: list[float] | None = None
+    transformed_at: datetime
+    transformation_scope: str = "single_inspected_text_fk_fixed_frame"
+    limitations: list[str] = Field(default_factory=lambda: [
+        "Only one acquired and inspected KPL/FK is loaded; no PCK, CK, SCLK, SPK, LSK, or meta-kernel is loaded.",
+        "Only built-in inertial frames and fixed-offset FK frames (SPICE frame class 4) are supported.",
+        "Dynamic, PCK body-fixed, CK spacecraft, switch, and time-dependent frames are rejected.",
+        "The supplied epoch is ET seconds past J2000 TDB; UTC conversion is a separate operation using an explicit LSK.",
+        "The worker has a timeout and best-effort POSIX resource limits, not a complete OS sandbox.",
+        "A computed rotation is a geometric transformation, not scientific validation or mission acceptance.",
+    ])
