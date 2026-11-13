@@ -101,6 +101,10 @@ class RequirementTraceabilityStore:
     ) -> RequirementAllocation:
         project_key = str(project_id)
         with self._connection() as connection:
+            # Validate against the latest revisions and persist the resulting
+            # evidence/allocation under one SQLite write reservation. Otherwise a
+            # concurrent revision can commit between validation and insertion.
+            connection.execute("BEGIN IMMEDIATE")
             project = connection.execute(
                 """
                 SELECT r.payload_json

@@ -1,7 +1,11 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.missions.project_routes import get_mission_project_store
+from app.missions.projects import MissionProjectDraft
+from app.missions.verification import VerificationRecordCreate
 from app.missions.verification_routes import get_mission_verification_store
 from app.storage.mission_projects import MissionProjectStore
 from app.storage.mission_verification import MissionVerificationStore
@@ -142,3 +146,22 @@ def test_verification_requires_existing_project() -> None:
         "/api/v1/missions/projects/00000000-0000-0000-0000-000000000000/verification-records"
     )
     assert response.status_code == 404
+
+
+def test_concurrent_verification_records_are_persisted_without_lock_errors(tmp_path) -> None:
+    project_store, verification_store = configured_stores(tmp_path)
+    project = project_store.create(MissionProjectDraft.model_validate(mission_payload()))
+    payload = VerificationRecordCreate.model_validate(evidence_payload())
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        records = list(
+            executor.map(
+                lambda _: verification_store.create(project.project_id, payload),
+                range(8),
+            )
+        )
+
+    assert len({record.verification_id for record in records}) == 8
+    listed = verification_store.list_for_project(project.project_id)
+    assert listed is not None
+    assert len(listed) == 8
