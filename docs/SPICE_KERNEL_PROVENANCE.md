@@ -52,11 +52,16 @@ Authentication and per-user/team authorization are not implemented in the curren
 1. Add independent trusted-digest provenance (for example, separately captured NAIF release manifest/signature evidence where available).
 2. Harden worker isolation at deployment level and add a reproducible worker image/build manifest.
 3. Expand bounded metadata inspection to CK, text-kernel variables, and segment-level summaries with explicit resource ceilings.
-4. Add deterministic time conversion and frame transformation tests using authoritative NAIF reference vectors and a reviewed kernel set.
+4. Expand the frozen NAIF LSK regression into bounded, provenance-captured time-conversion operations; then add frame-transformation tests using authoritative NAIF reference vectors and a reviewed kernel set.
 5. Only then expose bounded ephemeris queries with provenance, input/output frames, time scales, and kernel set captured in immutable run records.
+
+## Independent NAIF time-reference regression
+
+`backend/tests/fixtures/naif0012_reference.tls` is a compact frozen fixture containing the time-system constants and leap-second table from the official NAIF `naif0012.tls` file. The regression test loads this fixture directly through the pinned SpiceyPy/CSPICE dependency and checks that J2000 12:00:00 TDB maps to ET zero, ET zero formats as 2000-01-01 11:58:55.816 UTC, and parsing that UTC instant round-trips to ET zero within the stated tolerance. This is an independent reference-data regression for toolkit time conversion, not a new ORBITOPS time-conversion API and not a claim that the 2017 leap-second snapshot is current. Operational use must acquire and inspect an appropriately maintained LSK and capture its exact digest and provenance.
 
 ## References
 
+- [Official NAIF `naif0012.tls` source](https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/naif0012.tls) — source for the frozen fixture's constants and leap-second entries (the source file's table ends at 2017-01-01).
 - [SpiceyPy 8.4.0 documentation](https://spiceypy.readthedocs.io/en/main/)
 - [SpiceyPy PyPI release and package provenance](https://pypi.org/project/spiceypy/)
 - [NAIF SPK Required Reading](https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs/C/req/spk.html)
