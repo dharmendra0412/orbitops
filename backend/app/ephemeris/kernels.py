@@ -128,3 +128,25 @@ class SpiceKernelInspectionRecord(BaseModel):
         "Inspection does not authenticate the publisher, validate licence terms, or establish scientific suitability.",
         "The result is not independent scientific verification or mission acceptance evidence.",
     ])
+
+class SpiceTimeConversionRecord(BaseModel):
+    """Immutable UTC-to-ET result tied to the exact acquired LSK artifact."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    conversion_id: str = Field(default_factory=lambda: __import__("uuid").uuid4().hex)
+    kernel_id: str
+    artifact_sha256: str
+    toolkit_name: str = "SpiceyPy"
+    toolkit_version: str
+    input_utc: str
+    et_seconds: float
+    normalized_utc: str
+    converted_at: datetime
+    conversion_scope: str = "utc_to_et_using_single_registered_lsk"
+    limitations: list[str] = Field(default_factory=lambda: [
+        "Conversion used only the registered and acquired LSK artifact identified by artifact_sha256.",
+        "The result depends on the leap-second table and time constants in that exact LSK; it may be stale for dates beyond its coverage.",
+        "This is a time-system conversion, not ephemeris evaluation, frame transformation, or scientific validation.",
+        "The subprocess has a timeout and best-effort POSIX resource limits, not a complete OS sandbox.",
+    ])
