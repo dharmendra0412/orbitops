@@ -128,7 +128,9 @@ export default function App() {
   const [componentSubsystem, setComponentSubsystem] = useState("structure");
   const [componentMass, setComponentMass] = useState("");
   const [componentDraw, setComponentDraw] = useState("");
-  const [componentGeneration, setComponentGeneration] = useState("");\n  const [componentLoadDuty, setComponentLoadDuty] = useState("1");\n  const [componentGenerationDuty, setComponentGenerationDuty] = useState("1");
+  const [componentGeneration, setComponentGeneration] = useState("");
+  const [componentLoadDuty, setComponentLoadDuty] = useState("1");
+  const [componentGenerationDuty, setComponentGenerationDuty] = useState("1");
   const [massMargin, setMassMargin] = useState("20");
   const [spacecraftState, setSpacecraftState] = useState<ModelState>("idle");
   const [spacecraftError, setSpacecraftError] = useState("");
@@ -225,10 +227,14 @@ export default function App() {
   function addSpacecraftComponent() {
     const mass = Number(componentMass);
     const draw = componentDraw.trim() ? Number(componentDraw) : null;
-    const generation = componentGeneration.trim() ? Number(componentGeneration) : null;\n    const loadDuty = Number(componentLoadDuty);\n    const generationDuty = Number(componentGenerationDuty);
+    const generation = componentGeneration.trim() ? Number(componentGeneration) : null;
+    const loadDuty = Number(componentLoadDuty);
+    const generationDuty = Number(componentGenerationDuty);
     if (!componentId.trim() || !componentName.trim() || !Number.isFinite(mass) || mass < 0 ||
         (draw !== null && (!Number.isFinite(draw) || draw < 0)) ||
-        (generation !== null && (!Number.isFinite(generation) || generation < 0)) ||\n        !Number.isFinite(loadDuty) || loadDuty < 0 || loadDuty > 1 ||\n        !Number.isFinite(generationDuty) || generationDuty < 0 || generationDuty > 1) {
+        (generation !== null && (!Number.isFinite(generation) || generation < 0)) ||
+        !Number.isFinite(loadDuty) || loadDuty < 0 || loadDuty > 1 ||
+        !Number.isFinite(generationDuty) || generationDuty < 0 || generationDuty > 1) {
       setSpacecraftError("Enter a component ID/name, non-negative mass, and valid optional power values."); return;
     }
     if (spacecraftComponents.some((item) => item.component_id === componentId.trim())) {
