@@ -31,6 +31,15 @@ def test_optional_sections_can_be_absent():
     assert result.file_areas == []
 
 
+def test_non_pds4_xml_root_is_rejected():
+    response = client.post(
+        "/api/v1/datasets/pds4/inspect",
+        files={"file": ("not-pds4.xml", b"<root><title>Not PDS4</title></root>", "application/xml")},
+    )
+    assert response.status_code == 422
+    assert "PDS4 Product_*" in response.json()["detail"]
+
+
 def test_malformed_xml_is_rejected():
     response = client.post("/api/v1/datasets/pds4/inspect", files={"file": ("broken.xml", b"<broken>", "application/xml")})
     assert response.status_code == 422
