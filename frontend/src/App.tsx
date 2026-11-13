@@ -268,7 +268,8 @@ export default function App() {
       }
       if (!response.ok) throw new Error("Unable to load spacecraft configuration");
       const record = await response.json() as SpacecraftRecord;
-      setSpacecraftRecord(record); setSpacecraftComponents(record.revision.draft.components);\n      setTraceabilityComponentId(record.revision.draft.components[0]?.component_id ?? "");
+      setSpacecraftRecord(record); setSpacecraftComponents(record.revision.draft.components);
+      setTraceabilityComponentId(record.revision.draft.components[0]?.component_id ?? "");
       const budgetResponse = await fetch(base + "/budgets");
       if (budgetResponse.ok) setSpacecraftBudget(await budgetResponse.json() as SpacecraftBudget);
     } catch (error) { setSpacecraftError(error instanceof Error ? error.message : "Unable to load spacecraft data"); }
