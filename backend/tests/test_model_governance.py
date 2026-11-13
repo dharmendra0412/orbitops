@@ -42,7 +42,7 @@ def test_registered_models_start_unvalidated(tmp_path) -> None:
         response = client.get("/api/v1/models/governance/catalog")
         assert response.status_code == 200
         models = response.json()["models"]
-        assert len(models) == 2
+        assert len(models) == 3
         propulsion = next(item for item in models if item["model_id"] == MODEL_ID)
         assert propulsion["current_state"] == "unvalidated"
         assert propulsion["assessment_count"] == 0
@@ -143,5 +143,30 @@ def test_assessment_evidence_is_append_only_and_filterable(tmp_path) -> None:
         assert listed.status_code == 200
         assert len(listed.json()) == 2
         assert {item["outcome"] for item in listed.json()} == {"pass", "inconclusive"}
+    finally:
+        clear_overrides()
+
+def test_orbital_model_equations_are_registered_for_assessment(tmp_path) -> None:
+    configured_store(tmp_path)
+    try:
+        response = client.post(
+            "/api/v1/models/governance/assessments",
+            json={
+                "model_id": "orbital.two-body-keplerian",
+                "model_version": "0.1.0",
+                "equation_id": "ORBITAL.HOHMANN.TRANSFER_DELTA_V.V1",
+                "kind": "verification",
+                "outcome": "inconclusive",
+                "method": "analysis",
+                "performed_at": "2026-11-13T10:00:00Z",
+                "performed_by": "Orbital model test reviewer",
+                "summary": "Preliminary analytic checks recorded; independent validation remains pending.",
+                "evidence_reference": "test-artifact://orbital-model/verification-001",
+            },
+        )
+        assert response.status_code == 201
+        catalog = client.get("/api/v1/models/governance/catalog").json()
+        orbital = next(item for item in catalog["models"] if item["model_id"] == "orbital.two-body-keplerian")
+        assert orbital["current_state"] == "review_required"
     finally:
         clear_overrides()
