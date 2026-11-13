@@ -1,11 +1,10 @@
 """SPICE kernel metadata registration and bounded artifact acquisition API."""
 import hashlib
 import os
+import secrets
 import stat
-import tempfile
 from datetime import UTC, datetime
 from functools import lru_cache
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
@@ -36,30 +35,55 @@ MAX_KERNEL_UPLOAD_BYTES = 1024 * 1024 * 1024
 UPLOAD_CHUNK_BYTES = 1024 * 1024
 
 
+def _open_or_create_storage_directory(parent_fd: int, name: str) -> int:
+    """Open a child directory relative to a trusted descriptor without following links."""
+    try:
+        os.mkdir(name, mode=0o700, dir_fd=parent_fd)
+    except FileExistsError:
+        pass
+    descriptor = os.open(
+        name,
+        os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
+        dir_fd=parent_fd,
+    )
+    if not stat.S_ISDIR(os.fstat(descriptor).st_mode):
+        os.close(descriptor)
+        raise OSError("SPICE storage component is not a directory")
+    return descriptor
+
+
 def _publish_content_addressed_artifact(
-    temporary_path: Path,
-    artifact_path: Path,
+    temporary_name: str,
+    staging_fd: int,
+    artifact_directory_fd: int,
     *,
     expected_sha256: str,
     expected_size: int,
 ) -> None:
-    """Publish without replacing an existing path and verify any concurrent winner."""
+    """Publish relative to pinned directory descriptors, without clobbering or following links."""
     try:
-        os.chmod(temporary_path, 0o444)
+        os.chmod(temporary_name, 0o444, dir_fd=staging_fd, follow_symlinks=False)
         try:
-            # A hard link is an atomic no-clobber publication on the same filesystem.
-            os.link(temporary_path, artifact_path, follow_symlinks=False)
+            os.link(
+                temporary_name,
+                expected_sha256,
+                src_dir_fd=staging_fd,
+                dst_dir_fd=artifact_directory_fd,
+                follow_symlinks=False,
+            )
             return
         except FileExistsError:
             descriptor = os.open(
-                artifact_path,
+                expected_sha256,
                 os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
+                dir_fd=artifact_directory_fd,
             )
             with os.fdopen(descriptor, "rb") as existing_file:
-                if not stat.S_ISREG(os.fstat(existing_file.fileno()).st_mode):
+                metadata = os.fstat(existing_file.fileno())
+                if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
                     raise HTTPException(
                         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail="Existing content-addressed artifact is not a regular file",
+                        detail="Existing content-addressed artifact must be a singly linked regular file",
                     )
                 existing_digest = hashlib.sha256()
                 existing_size = 0
@@ -142,15 +166,25 @@ async def upload_spice_kernel_artifact(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Kernel artifact already acquired")
 
     storage_root = settings.spice_kernel_storage_path
-    staging_root = storage_root / ".staging"
-    staging_root.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary_name = tempfile.mkstemp(prefix="kernel-", suffix=".part", dir=staging_root)
-    temporary_path = Path(temporary_name)
+    storage_root.mkdir(parents=True, exist_ok=True)
+    root_fd = staging_fd = artifact_parent_fd = None
+    temporary_name = f"kernel-{secrets.token_hex(16)}.part"
     digest = hashlib.sha256()
     size_bytes = 0
 
     try:
-        with os.fdopen(descriptor, "wb") as destination:
+        root_fd = os.open(
+            storage_root,
+            os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
+        )
+        staging_fd = _open_or_create_storage_directory(root_fd, ".staging")
+        temporary_fd = os.open(
+            temporary_name,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+            dir_fd=staging_fd,
+        )
+        with os.fdopen(temporary_fd, "wb") as destination:
             while chunk := await upload.read(UPLOAD_CHUNK_BYTES):
                 size_bytes += len(chunk)
                 if size_bytes > MAX_KERNEL_UPLOAD_BYTES:
@@ -177,16 +211,21 @@ async def upload_spice_kernel_artifact(
                 detail="Uploaded artifact SHA-256 does not match the registered digest",
             )
 
-        storage_key = f"sha256/{computed_sha256[:2]}/{computed_sha256}"
-        artifact_path = storage_root / storage_key
-        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        sha_directory_fd = _open_or_create_storage_directory(root_fd, "sha256")
+        try:
+            prefix_fd = _open_or_create_storage_directory(sha_directory_fd, computed_sha256[:2])
+        finally:
+            os.close(sha_directory_fd)
+        artifact_parent_fd = prefix_fd
         _publish_content_addressed_artifact(
-            temporary_path,
-            artifact_path,
+            temporary_name,
+            staging_fd,
+            artifact_parent_fd,
             expected_sha256=computed_sha256,
             expected_size=size_bytes,
         )
 
+        storage_key = f"sha256/{computed_sha256[:2]}/{computed_sha256}"
         artifact = SpiceKernelArtifactRecord(
             kernel_id=kernel_id,
             sha256=computed_sha256,
@@ -201,9 +240,26 @@ async def upload_spice_kernel_artifact(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Kernel artifact was concurrently acquired",
             ) from error
+    except HTTPException:
+        raise
+    except OSError as error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to safely open or create SPICE artifact storage directories",
+        ) from error
     finally:
-        temporary_path.unlink(missing_ok=True)
+        if staging_fd is not None:
+            try:
+                os.unlink(temporary_name, dir_fd=staging_fd)
+            except FileNotFoundError:
+                pass
+            os.close(staging_fd)
+        if artifact_parent_fd is not None:
+            os.close(artifact_parent_fd)
+        if root_fd is not None:
+            os.close(root_fd)
         await upload.close()
+
 
 
 @router.get("/{kernel_id}/artifact", response_model=SpiceKernelArtifactRecord)
