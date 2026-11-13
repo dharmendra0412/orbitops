@@ -35,6 +35,14 @@ MAX_KERNEL_UPLOAD_BYTES = 1024 * 1024 * 1024
 UPLOAD_CHUNK_BYTES = 1024 * 1024
 
 
+def _supports_secure_artifact_storage() -> bool:
+    """Whether this runtime supports the POSIX descriptor-relative storage contract."""
+    required_dir_fd_operations = (os.open, os.mkdir, os.link, os.chmod, os.unlink)
+    return os.name == "posix" and all(
+        operation in os.supports_dir_fd for operation in required_dir_fd_operations
+    )
+
+
 def _open_or_create_storage_directory(parent_fd: int, name: str) -> int:
     """Open a child directory relative to a trusted descriptor without following links."""
     try:
@@ -174,6 +182,15 @@ async def upload_spice_kernel_artifact(
     The server never dereferences the registered source URL. Uploaded bytes are
     stored by their computed digest after the digest matches the user declaration.
     """
+    if not _supports_secure_artifact_storage():
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail=(
+                "Secure SPICE artifact acquisition currently requires a POSIX runtime "
+                "with descriptor-relative filesystem operations"
+            ),
+        )
+
     registration_record = store.get(kernel_id)
     if registration_record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SPICE kernel not found")
