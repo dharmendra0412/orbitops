@@ -936,7 +936,7 @@ export default function App() {
         </div>
       </header>
 
-      <section className="hero">
+      <section className="hero" id="overview">
         <div className="eyebrow"><Activity size={14} /> MISSION ENGINEERING PLATFORM</div>
         <h1>Design with evidence.<br /><span>Operate with confidence.</span></h1>
         <p className="hero-copy">A traceable engineering workspace for missions across all eight planets. Every result will be tied to its data, equations, assumptions and validation evidence.</p>
@@ -952,7 +952,7 @@ export default function App() {
         <p className="workspace-disclaimer">Early-access engineering workspace · Authentication and team access controls are not yet implemented.</p>
       </section>
 
-      <section className="section-heading" id="overview">
+      <section className="section-heading">
         <div><div className="eyebrow">ENGINEERING WORKSTREAMS</div><h2>System foundation</h2></div>
         <span className="stage-pill">FOUNDATION · 0.1.0</span>
       </section>
