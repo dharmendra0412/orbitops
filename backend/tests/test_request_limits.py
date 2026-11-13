@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.testclient import TestClient
 
 from app.middleware.request_limits import RequestBodyLimitMiddleware
@@ -17,6 +17,10 @@ def _limited_test_app() -> FastAPI:
     @app.post("/{path:path}")
     async def echo_body(request: Request):
         return {"size": len(await request.body())}
+
+    @app.post("/multipart")
+    async def parse_upload(file: UploadFile = File()):
+        return {"filename": file.filename}
 
     return app
 
@@ -55,5 +59,15 @@ def test_chunked_request_body_is_counted_without_content_length():
     response = client.post(
         "/api/v1/missions/projects",
         content=iter([b"x" * 10, b"x" * 7]),
+    )
+    assert response.status_code == 413
+
+
+
+def test_multipart_upload_is_rejected_before_form_parsing():
+    client = TestClient(_limited_test_app())
+    response = client.post(
+        "/multipart",
+        files={"file": ("payload.bin", b"x", "application/octet-stream")},
     )
     assert response.status_code == 413
