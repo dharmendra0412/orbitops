@@ -16,6 +16,8 @@ type SpacecraftBudget = { mass: { component_mass_kg: number; margin_percent: num
 type TraceabilityAllocation = { allocation_id: string; requirement_id: string; component_id: string; rationale: string; allocated_by: string; recorded_at: string };
 type TraceabilityRow = { requirement_id: string; requirement_title: string; requirement_statement: string; requirement_category: string; verification_method: string; allocated: boolean; allocation_count: number; allocations: TraceabilityAllocation[]; active_component_count: number; stale_component_ids: string[]; verification_record_count: number; pass_record_count: number; fail_record_count: number; inconclusive_record_count: number; verification_evidence_present: boolean };
 type TraceabilityMatrix = { mission_revision: number; spacecraft_configuration_revision: number | null; requirement_count: number; allocated_requirement_count: number; unallocated_requirement_count: number; rows: TraceabilityRow[]; limitations: string[] };
+type ModelGovernanceModel = { model_id: string; display_name: string; model_version: string; equation_ids: string[]; intended_scope: string; current_state: "unvalidated" | "verified" | "validated" | "review_required"; latest_verification_outcome: "pass" | "fail" | "inconclusive" | null; latest_validation_outcome: "pass" | "fail" | "inconclusive" | null; assessment_count: number };
+type ModelGovernanceCatalog = { models: ModelGovernanceModel[]; limitations: string[] };
 type MissionCatalog = {
   scope: string;
   destinations: { planet_id: string; display_name: string; planetary_class: string; feasibility_status: string }[];
@@ -143,6 +145,15 @@ export default function App() {
   const [traceabilityRationale, setTraceabilityRationale] = useState("");
   const [traceabilityState, setTraceabilityState] = useState<ModelState>("idle");
   const [traceabilityError, setTraceabilityError] = useState("");
+  const [modelGovernance, setModelGovernance] = useState<ModelGovernanceCatalog | null>(null);
+  const [assessmentModelId, setAssessmentModelId] = useState("propulsion.ideal-rocket-equation");
+  const [assessmentKind, setAssessmentKind] = useState<"verification" | "validation">("verification");
+  const [assessmentOutcome, setAssessmentOutcome] = useState<"pass" | "fail" | "inconclusive">("inconclusive");
+  const [assessmentMethod, setAssessmentMethod] = useState("test");
+  const [assessmentSummary, setAssessmentSummary] = useState("");
+  const [assessmentReference, setAssessmentReference] = useState("");
+  const [assessmentState, setAssessmentState] = useState<ModelState>("idle");
+  const [assessmentError, setAssessmentError] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -161,6 +172,7 @@ export default function App() {
     if (apiStatus === "online") {
       void refreshRecentRuns();
       void refreshMissionProjects();
+      void refreshModelGovernance();
       fetch(apiBase + "/api/v1/missions/catalog")
         .then((response) => {
           if (!response.ok) throw new Error("Mission catalogue unavailable");
@@ -174,6 +186,51 @@ export default function App() {
         .catch(() => setMissionCatalog(null));
     }
   }, [apiStatus]);
+
+
+  async function refreshModelGovernance() {
+    try {
+      const response = await fetch(apiBase + "/api/v1/models/governance/catalog");
+      if (!response.ok) throw new Error("Unable to load model governance catalogue");
+      const catalog = await response.json() as ModelGovernanceCatalog;
+      setModelGovernance(catalog);
+      if (!catalog.models.some((model) => model.model_id === assessmentModelId) && catalog.models[0]) {
+        setAssessmentModelId(catalog.models[0].model_id);
+      }
+    } catch (error) {
+      setAssessmentError(error instanceof Error ? error.message : "Unable to load model governance status");
+    }
+  }
+
+  async function createModelAssessment() {
+    const model = modelGovernance?.models.find((item) => item.model_id === assessmentModelId);
+    if (!model || assessmentSummary.trim().length < 10 || assessmentReference.trim().length < 5) {
+      setAssessmentError("Select a registered model and provide an assessment summary and evidence reference.");
+      setAssessmentState("error");
+      return;
+    }
+    setAssessmentState("calculating");
+    setAssessmentError("");
+    try {
+      const response = await fetch(apiBase + "/api/v1/models/governance/assessments", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model_id: model.model_id, model_version: model.model_version, equation_id: model.equation_ids[0],
+          kind: assessmentKind, outcome: assessmentOutcome, method: assessmentMethod,
+          performed_at: new Date().toISOString(), performed_by: "Workspace user",
+          summary: assessmentSummary.trim(), evidence_reference: assessmentReference.trim(),
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to save model assessment");
+      setAssessmentSummary("");
+      setAssessmentState("success");
+      await refreshModelGovernance();
+    } catch (error) {
+      setAssessmentError(error instanceof Error ? error.message : "Unexpected model assessment error");
+      setAssessmentState("error");
+    }
+  }
 
   async function refreshMissionProjects() {
     try {
@@ -850,6 +907,31 @@ export default function App() {
             </div>
           </div>
         )}
+      </section>
+
+
+      <section className="model-panel model-governance-panel">
+        <div className="ingestion-heading"><span className="card-icon"><ShieldCheck size={20} /></span><div><div className="eyebrow">MODEL CREDIBILITY · VERIFICATION & VALIDATION</div><h2>Model governance register</h2></div></div>
+        <p className="ingestion-copy">Record implementation verification and scientific validation evidence separately. Status is derived from the latest assessment of each type; evidence entries are not independent certification.</p>
+        {modelGovernance && <div className="run-list">
+          {modelGovernance.models.map((model) => <div className="run-row" key={model.model_id}>
+            <div className="run-row-main"><strong>{model.display_name}</strong><span>{model.model_id} · v{model.model_version}</span><small>State: {model.current_state.replace(/_/g, " ")} · {model.assessment_count} assessment(s)</small><small>Verification: {model.latest_verification_outcome ?? "not assessed"} · Validation: {model.latest_validation_outcome ?? "not assessed"}</small></div>
+          </div>)}
+        </div>}
+        <div className="model-form">
+          <label className="model-field">Registered model<select value={assessmentModelId} onChange={(e) => setAssessmentModelId(e.target.value)}>{(modelGovernance?.models ?? []).map((model) => <option key={model.model_id} value={model.model_id}>{model.display_name} · v{model.model_version}</option>)}</select></label>
+          <label className="model-field">Assessment type<select value={assessmentKind} onChange={(e) => setAssessmentKind(e.target.value as "verification" | "validation")}><option value="verification">Implementation verification</option><option value="validation">Scientific validation</option></select></label>
+          <label className="model-field">Outcome<select value={assessmentOutcome} onChange={(e) => setAssessmentOutcome(e.target.value as "pass" | "fail" | "inconclusive")}><option value="pass">Pass</option><option value="fail">Fail</option><option value="inconclusive">Inconclusive</option></select></label>
+          <label className="model-field">Method<select value={assessmentMethod} onChange={(e) => setAssessmentMethod(e.target.value)}><option value="test">Test</option><option value="analysis">Analysis</option><option value="comparison">Comparison</option><option value="inspection">Inspection</option><option value="demonstration">Demonstration</option></select></label>
+        </div>
+        <label className="model-field">Assessment summary<textarea rows={2} value={assessmentSummary} onChange={(e) => setAssessmentSummary(e.target.value)} placeholder="Describe scope, procedure, observed results, and limitations." /></label>
+        <label className="model-field">Evidence reference<input value={assessmentReference} onChange={(e) => setAssessmentReference(e.target.value)} placeholder="Report ID, repository path, DOI, or controlled document reference" /></label>
+        <button className="inspect-button model-button" type="button" onClick={createModelAssessment} disabled={!modelGovernance || assessmentState === "calculating"}>
+          {assessmentState === "calculating" ? <LoaderCircle size={16} className="spin" /> : <ShieldCheck size={16} />}
+          {assessmentState === "calculating" ? "Recording assessment..." : "Record model assessment"}
+        </button>
+        {assessmentError && <p className="inline-error">{assessmentError}</p>}
+        {modelGovernance && <div className="model-assumptions"><strong>Governance limits</strong><ul>{modelGovernance.limitations.map((item) => <li key={item}>{item}</li>)}</ul></div>}
       </section>
 
       <section className="model-panel run-history-panel">
