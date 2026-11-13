@@ -68,6 +68,15 @@ def compile_mission_review_package(
     component_count = len(spacecraft.revision.draft.components) if spacecraft is not None else 0
 
     findings: list[ReviewFinding] = []
+    if not requirements:
+        findings.append(
+            ReviewFinding(
+                code="MISSION_REQUIREMENTS_MISSING",
+                severity="attention",
+                title="Mission requirements are not defined",
+                description="Add structured mission requirements before conducting traceability and verification review.",
+            )
+        )
     if spacecraft is None:
         findings.append(
             ReviewFinding(
@@ -136,6 +145,7 @@ def compile_mission_review_package(
         review_state = ReviewPackageState.REVIEW_REQUIRED
     elif (
         spacecraft is None
+        or not requirements
         or matrix.unallocated_requirement_count > 0
         or requirements_without_evidence > 0
     ):
