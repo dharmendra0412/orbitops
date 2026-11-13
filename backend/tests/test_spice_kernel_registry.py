@@ -1,4 +1,5 @@
 import hashlib
+import os
 
 import spiceypy as spice
 from fastapi.testclient import TestClient
@@ -780,5 +781,92 @@ def test_artifact_upload_reuses_only_matching_regular_content_addressed_file(
         assert response.status_code == 201, response.text
         assert artifact_path.read_bytes() == content
         assert artifact_path.stat().st_mode & 0o777 == 0o444
+    finally:
+        clear_overrides()
+
+
+
+def test_artifact_upload_rejects_symlinked_staging_directory(tmp_path, monkeypatch):
+    configure_store(tmp_path)
+    storage_root = tmp_path / "artifacts"
+    storage_root.mkdir()
+    outside = tmp_path / "outside-staging"
+    outside.mkdir()
+    (storage_root / ".staging").symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", storage_root)
+    content = b"must not be staged through a symlink"
+    registration = payload("symlinked-staging")
+    registration["sha256"] = hashlib.sha256(content).hexdigest()
+    try:
+        assert client.post(
+            "/api/v1/ephemeris/spice/kernels", json=registration
+        ).status_code == 201
+        response = client.post(
+            "/api/v1/ephemeris/spice/kernels/symlinked-staging/artifact",
+            files={"upload": ("kernel.bin", content, "application/octet-stream")},
+        )
+        assert response.status_code == 500
+        assert "storage directories" in response.json()["detail"]
+        assert list(outside.iterdir()) == []
+    finally:
+        clear_overrides()
+
+
+def test_artifact_upload_rejects_symlinked_digest_directory(tmp_path, monkeypatch):
+    configure_store(tmp_path)
+    storage_root = tmp_path / "artifacts"
+    storage_root.mkdir()
+    outside = tmp_path / "outside-digests"
+    outside.mkdir()
+    (storage_root / "sha256").symlink_to(outside, target_is_directory=True)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", storage_root)
+    content = b"must not be published through a symlink"
+    registration = payload("symlinked-digest-directory")
+    registration["sha256"] = hashlib.sha256(content).hexdigest()
+    try:
+        assert client.post(
+            "/api/v1/ephemeris/spice/kernels", json=registration
+        ).status_code == 201
+        response = client.post(
+            "/api/v1/ephemeris/spice/kernels/symlinked-digest-directory/artifact",
+            files={"upload": ("kernel.bin", content, "application/octet-stream")},
+        )
+        assert response.status_code == 500
+        assert "storage directories" in response.json()["detail"]
+        assert list(outside.iterdir()) == []
+    finally:
+        clear_overrides()
+
+
+def test_artifact_upload_rejects_hardlinked_existing_content_without_chmod_side_effect(
+    tmp_path, monkeypatch
+):
+    configure_store(tmp_path)
+    storage_root = tmp_path / "artifacts"
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", storage_root)
+    content = b"same content but external hardlink must not be modified"
+    digest = hashlib.sha256(content).hexdigest()
+    registration = payload("hardlinked-existing-artifact")
+    registration["sha256"] = digest
+    try:
+        assert client.post(
+            "/api/v1/ephemeris/spice/kernels", json=registration
+        ).status_code == 201
+        artifact_path = storage_root / "sha256" / digest[:2] / digest
+        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        external_alias = tmp_path / "external-alias.bin"
+        external_alias.write_bytes(content)
+        external_alias.chmod(0o600)
+        os.link(external_alias, artifact_path)
+
+        response = client.post(
+            "/api/v1/ephemeris/spice/kernels/hardlinked-existing-artifact/artifact",
+            files={"upload": ("kernel.bin", content, "application/octet-stream")},
+        )
+
+        assert response.status_code == 500
+        assert "singly linked regular file" in response.json()["detail"]
+        assert external_alias.stat().st_mode & 0o777 == 0o600
+        assert external_alias.read_bytes() == content
     finally:
         clear_overrides()
