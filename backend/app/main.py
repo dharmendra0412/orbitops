@@ -5,6 +5,7 @@ from app.engineering.routes import ingestion_router
 from app.engineering.routes import router as engineering_router
 from app.ephemeris.routes import router as spice_kernel_router
 from app.ingestion.pds4 import router as pds4_router
+from app.middleware.request_limits import RequestBodyLimitMiddleware
 from app.missions.model_governance_routes import router as model_governance_router
 from app.missions.project_evidence_routes import router as project_evidence_router
 from app.missions.project_routes import router as mission_projects_router
@@ -28,6 +29,8 @@ app = FastAPI(
     ),
     version="0.1.0",
 )
+
+app.add_middleware(RequestBodyLimitMiddleware)
 
 if settings.cors_origins:
     app.add_middleware(
