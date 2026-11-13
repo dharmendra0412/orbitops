@@ -29,9 +29,13 @@ def _frame_class(name: str) -> int:
     frame_id = int(spice.namfrm(name))
     if frame_id == 0:
         raise ValueError(f"Unknown SPICE frame: {name}")
-    _center, frame_class, _class_id, found = spice.frinfo(frame_id)
-    if not found:
-        raise ValueError(f"No SPICE frame definition found for: {name}")
+    frame_info = spice.frinfo(frame_id)
+    if len(frame_info) == 4:
+        _center, frame_class, _class_id, found = frame_info
+        if not found:
+            raise ValueError(f"No SPICE frame definition found for: {name}")
+    else:
+        _center, frame_class, _class_id = frame_info
     if int(frame_class) not in (1, 4):
         raise ValueError(
             f"Frame {name} uses unsupported SPICE frame class {frame_class}; "
