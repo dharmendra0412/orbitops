@@ -923,6 +923,13 @@ export default function App() {
           <span className="brand-mark"><Satellite size={20} /></span>
           <span>ORBIT<span className="brand-accent">OPS</span></span>
         </a>
+        <nav className="topbar-nav" aria-label="Main navigation">
+          <a href="#overview">Overview</a>
+          <a href="#mission-workspace">Mission design</a>
+          <a href="#analysis-tools">Analysis</a>
+          <a href="#data-tools">Data</a>
+          <a href="#governance">Governance</a>
+        </nav>
         <div className="topbar-right">
           <span className="environment-label">MULTI-PLANETARY WORKSPACE</span>
           <span className={"api-indicator " + apiStatus}><span className="status-dot" />API {apiStatus}</span>
@@ -936,15 +943,21 @@ export default function App() {
         <div className="hero-meta">
           <span><ShieldCheck size={15} /> Evidence-first engineering</span>
           <span><Layers3 size={15} /> Versioned models and datasets</span>
+          <span><Activity size={15} /> Browser-based mission workspace</span>
         </div>
+        <div className="hero-actions">
+          <a className="hero-primary" href="#mission-workspace">Open mission workspace <Activity size={16} /></a>
+          <a className="hero-secondary" href="#analysis-tools">Explore engineering tools</a>
+        </div>
+        <p className="workspace-disclaimer">Early-access engineering workspace · Authentication and team access controls are not yet implemented.</p>
       </section>
 
-      <section className="section-heading">
+      <section className="section-heading" id="overview">
         <div><div className="eyebrow">ENGINEERING WORKSTREAMS</div><h2>System foundation</h2></div>
         <span className="stage-pill">FOUNDATION · 0.1.0</span>
       </section>
 
-      <section className="workstream-grid" aria-label="Engineering workstreams">
+      <section className="workstream-grid" id="workstreams" aria-label="Engineering workstreams">
         {workstreams.map(({ icon: Icon, title, detail, state, ready }, index) => (
           <article className="workstream-card" key={title}>
             <div className="card-top"><span className="card-icon"><Icon size={19} /></span><span className="card-index">0{index + 1}</span></div>
@@ -954,7 +967,7 @@ export default function App() {
         ))}
       </section>
 
-      <section className="model-panel mission-catalog-panel">
+      <section className="model-panel mission-catalog-panel" id="mission-explorer">
         <div className="ingestion-heading">
           <span className="card-icon"><Satellite size={20} /></span>
           <div><div className="eyebrow">MISSION SCOPE · EIGHT PLANETS</div><h2>Planetary mission explorer</h2></div>
@@ -988,7 +1001,7 @@ export default function App() {
         )}
       </section>
 
-      <section className="model-panel mission-catalog-panel">
+      <section className="model-panel mission-catalog-panel" id="mission-workspace">
         <div className="ingestion-heading">
           <span className="card-icon"><Layers3 size={20} /></span>
           <div><div className="eyebrow">MISSION WORKSPACE · PERSISTENT PROJECTS</div><h2>Create a mission project</h2></div>
@@ -1072,7 +1085,7 @@ export default function App() {
         </div>}
       </section>
 
-      {selectedProject && <section className="model-panel spacecraft-panel">
+      {selectedProject && <section className="model-panel spacecraft-panel" id="spacecraft">
         <div className="ingestion-heading"><span className="card-icon"><Layers3 size={20} /></span><div><div className="eyebrow">SPACECRAFT ENGINEERING</div><h2>Component register & budgets</h2></div></div>
         <p className="ingestion-copy">Add user-specified spacecraft components and calculate preliminary mass and average-power totals. Values are not independently verified.</p>
         <div className="model-form">
@@ -1097,7 +1110,7 @@ export default function App() {
         {spacecraftBudget && <div className="model-result"><div className="result-heading"><CheckCircle2 size={17} /> Preliminary budget summary</div><div className="model-metrics"><div><dt>Component mass</dt><dd>{spacecraftBudget.mass.component_mass_kg.toFixed(2)} <small>kg</small></dd></div><div><dt>Mass incl. margin</dt><dd>{spacecraftBudget.mass.total_with_margin_kg.toFixed(2)} <small>kg</small></dd></div><div><dt>Net average power</dt><dd>{spacecraftBudget.power.net_power_w.toFixed(2)} <small>W</small></dd></div></div><div className="model-meta">Average generation {spacecraftBudget.power.average_generation_w.toFixed(2)} W · Average load {spacecraftBudget.power.average_load_w.toFixed(2)} W</div><div className="model-assumptions"><strong>Limitations</strong><ul>{spacecraftBudget.power.assumptions.map((item) => <li key={item}>{item}</li>)}</ul></div></div>}
       </section>}
 
-      {selectedProject && <section className="model-panel traceability-panel">
+      {selectedProject && <section className="model-panel traceability-panel" id="traceability">
         <div className="ingestion-heading"><span className="card-icon"><FileCheck2 size={20} /></span><div><div className="eyebrow">SYSTEMS ENGINEERING · REQUIREMENT TRACEABILITY</div><h2>Requirement-to-subsystem matrix</h2></div></div>
         <p className="ingestion-copy">Allocate each mission requirement to one or more components in the latest spacecraft configuration. Allocations record engineering intent; they do not demonstrate compliance.</p>
         {traceabilityMatrix && <div className="model-metrics">
@@ -1222,7 +1235,7 @@ export default function App() {
         </div>
       </section>}
 
-      <section className="model-panel">
+      <section className="model-panel" id="data-tools">
         <div className="ingestion-heading">
           <span className="card-icon"><FileCheck2 size={20} /></span>
           <div><div className="eyebrow">PDS4 LABEL TOOL · METADATA ONLY</div><h2>Inspect a PDS4 product label</h2></div>
@@ -1341,7 +1354,7 @@ export default function App() {
         <a className="api-docs-link" href={apiBase + "/docs"} target="_blank" rel="noreferrer">Open API documentation ↗</a>
       </section>
 
-      <section className="model-panel">
+      <section className="model-panel" id="analysis-tools">
         <div className="ingestion-heading">
           <span className="card-icon"><Calculator size={20} /></span>
           <div><div className="eyebrow">PROPULSION MODEL · V0.1.0</div><h2>Ideal rocket-equation explorer</h2></div>
@@ -1453,7 +1466,7 @@ export default function App() {
         </div>}
       </section>
 
-      <section className="model-panel model-governance-panel">
+      <section className="model-panel model-governance-panel" id="governance">
         <div className="ingestion-heading"><span className="card-icon"><ShieldCheck size={20} /></span><div><div className="eyebrow">MODEL CREDIBILITY · VERIFICATION & VALIDATION</div><h2>Model governance register</h2></div></div>
         <p className="ingestion-copy">Record implementation verification and scientific validation evidence separately. Status is derived from the latest assessment of each type; evidence entries are not independent certification.</p>
         {modelGovernance && <div className="run-list">
@@ -1477,7 +1490,7 @@ export default function App() {
         {modelGovernance && <div className="model-assumptions"><strong>Governance limits</strong><ul>{modelGovernance.limitations.map((item) => <li key={item}>{item}</li>)}</ul></div>}
       </section>
 
-      <section className="model-panel run-history-panel">
+      <section className="model-panel run-history-panel" id="activity">
         <div className="ingestion-heading">
           <span className="card-icon"><Database size={20} /></span>
           <div><div className="eyebrow">TRACEABILITY REGISTRY</div><h2>Recent model runs</h2></div>
