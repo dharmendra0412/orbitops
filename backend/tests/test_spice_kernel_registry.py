@@ -1037,8 +1037,50 @@ def test_artifact_upload_reports_unsupported_secure_storage_runtime(tmp_path, mo
             files={"upload": ("kernel.bin", b"not-written", "application/octet-stream")},
         )
         assert response.status_code == 501
-        assert "requires a POSIX runtime" in response.json()["detail"]
+        assert "require a POSIX runtime" in response.json()["detail"]
         assert not (tmp_path / "artifacts").exists()
         assert store.get("missing") is None
+    finally:
+        clear_overrides()
+
+
+
+def test_all_spice_artifact_consumers_reject_unsupported_storage_runtime(tmp_path, monkeypatch):
+    configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes, "_supports_secure_artifact_storage", lambda: False)
+    requests = [
+        (
+            "post",
+            "/api/v1/ephemeris/spice/kernels/missing/inspection",
+            {},
+        ),
+        (
+            "post",
+            "/api/v1/ephemeris/spice/kernels/missing/time-conversions",
+            {"json": {"utc_time": "2000 JAN 01 11:58:55.816 UTC"}},
+        ),
+        (
+            "post",
+            "/api/v1/ephemeris/spice/kernels/missing/time-conversions/et-to-utc",
+            {"json": {"et_seconds": 0.0, "precision": 3}},
+        ),
+        (
+            "post",
+            "/api/v1/ephemeris/spice/kernels/missing/frame-transformations",
+            {
+                "json": {
+                    "from_frame": "J2000",
+                    "to_frame": "IAU_EARTH",
+                    "et_seconds": 0.0,
+                    "vector": [1.0, 0.0, 0.0],
+                }
+            },
+        ),
+    ]
+    try:
+        for method, path, kwargs in requests:
+            response = getattr(client, method)(path, **kwargs)
+            assert response.status_code == 501, (path, response.text)
+            assert "require a POSIX runtime" in response.json()["detail"]
     finally:
         clear_overrides()
