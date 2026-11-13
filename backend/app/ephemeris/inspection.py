@@ -1,5 +1,5 @@
 """Controlled invocation of the SPICE metadata inspection subprocess."""
-import hashlib
+import hashlib  # noqa: I001
 import json
 import os
 import subprocess
