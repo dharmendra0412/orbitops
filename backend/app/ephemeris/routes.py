@@ -16,9 +16,14 @@ from app.ephemeris.kernels import (
     SpiceKernelRecord,
     SpiceKernelRegistration,
     SpiceTimeConversionRecord,
+    SpiceEtToUtcRequest,
     SpiceUtcToEtRequest,
 )
-from app.ephemeris.time_conversion import SpiceTimeConversionError, convert_utc_to_et
+from app.ephemeris.time_conversion import (
+    SpiceTimeConversionError,
+    convert_et_to_utc,
+    convert_utc_to_et,
+)
 from app.settings import settings
 from app.storage.spice_kernels import SpiceKernelAlreadyExistsError, SpiceKernelStore
 
@@ -304,3 +309,51 @@ def get_spice_time_conversion(
     if conversion is None or conversion.kernel_id != kernel_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SPICE time conversion not found")
     return conversion
+
+@router.post(
+    "/{kernel_id}/time-conversions/et-to-utc",
+    response_model=SpiceTimeConversionRecord,
+    status_code=status.HTTP_201_CREATED,
+)
+def convert_spice_et_to_utc(
+    kernel_id: str,
+    payload: SpiceEtToUtcRequest,
+    store: Annotated[SpiceKernelStore, Depends(get_spice_kernel_store)],
+) -> SpiceTimeConversionRecord:
+    """Convert finite ET seconds past J2000 TDB using one acquired and inspected LSK."""
+    registration = store.get(kernel_id)
+    if registration is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SPICE kernel not found")
+    if registration.registration.kernel_type.value != "LSK":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="ET-to-UTC conversion requires a registered LSK kernel",
+        )
+
+    artifact = store.get_artifact(kernel_id)
+    inspection = store.get_inspection(kernel_id)
+    if artifact is None or inspection is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Acquire and inspect the LSK artifact before time conversion",
+        )
+    if inspection.detected_architecture.upper() != "KPL" or inspection.detected_kernel_type.upper() != "LSK":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The inspected artifact is not a compatible text LSK",
+        )
+
+    try:
+        conversion = convert_et_to_utc(
+            kernel_id=kernel_id,
+            et_seconds=payload.et_seconds,
+            precision=payload.precision,
+            expected_sha256=artifact.sha256,
+            storage_root=settings.spice_kernel_storage_path,
+        )
+        return store.create_time_conversion(conversion)
+    except SpiceTimeConversionError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
