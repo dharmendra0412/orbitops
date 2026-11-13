@@ -1,4 +1,5 @@
 """Append-only requirement-to-spacecraft allocation persistence."""
+import json
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -113,13 +114,14 @@ class RequirementTraceabilityStore:
             ).fetchone()
             if project is None:
                 raise TraceabilityProjectNotFoundError(project_key)
+
             draft = MissionProjectDraft.model_validate_json(project["payload_json"])
             if not any(item.requirement_id == payload.requirement_id for item in draft.requirements):
                 raise TraceabilityRequirementNotFoundError(payload.requirement_id)
 
             configuration = connection.execute(
                 """
-                SELECT c.configuration_id, c.latest_revision, r.payload_json
+                SELECT r.payload_json
                 FROM spacecraft_configurations c
                 JOIN spacecraft_configuration_revisions r
                   ON r.configuration_id = c.configuration_id
@@ -130,9 +132,9 @@ class RequirementTraceabilityStore:
             ).fetchone()
             if configuration is None:
                 raise TraceabilityConfigurationNotFoundError(project_key)
+
             component_ids = {
-                component["component_id"]
-                for component in __import__("json").loads(configuration["payload_json"])["components"]
+                item["component_id"] for item in json.loads(configuration["payload_json"])["components"]
             }
             if payload.component_id not in component_ids:
                 raise TraceabilityComponentNotFoundError(payload.component_id)
@@ -157,6 +159,7 @@ class RequirementTraceabilityStore:
                 if "UNIQUE constraint failed" in str(error):
                     raise TraceabilityAllocationExistsError(payload.component_id) from error
                 raise
+
         return RequirementAllocation(
             allocation_id=allocation_id,
             project_id=project_id,
@@ -192,18 +195,16 @@ class RequirementTraceabilityStore:
                 """,
                 (project_key,),
             ).fetchone()
-            current_components = set()
+
+            current_components: set[str] = set()
             configuration_revision = None
             if configuration is not None:
-                import json
                 current_components = {
-                    component["component_id"]
-                    for component in json.loads(configuration["payload_json"])["components"]
+                    item["component_id"]
+                    for item in json.loads(configuration["payload_json"])["components"]
                 }
                 configuration_revision = configuration["latest_revision"]
 
-            import json
-            mission_draft = MissionProjectDraft.model_validate_json(project["payload_json"])
             allocation_rows = connection.execute(
                 """
                 SELECT * FROM requirement_allocations
@@ -212,16 +213,23 @@ class RequirementTraceabilityStore:
                 """,
                 (project_key,),
             ).fetchall()
-            evidence_rows = connection.execute(
-                """
-                SELECT requirement_id, outcome, COUNT(*) AS record_count
-                FROM mission_verification_records
-                WHERE project_id = ?
-                GROUP BY requirement_id, outcome
-                """,
-                (project_key,),
-            ).fetchall()
 
+            verification_table = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'mission_verification_records'"
+            ).fetchone()
+            evidence_rows = []
+            if verification_table is not None:
+                evidence_rows = connection.execute(
+                    """
+                    SELECT requirement_id, outcome, COUNT(*) AS record_count
+                    FROM mission_verification_records
+                    WHERE project_id = ?
+                    GROUP BY requirement_id, outcome
+                    """,
+                    (project_key,),
+                ).fetchall()
+
+        mission_draft = MissionProjectDraft.model_validate_json(project["payload_json"])
         allocations_by_requirement: dict[str, list[RequirementAllocation]] = {}
         for row in allocation_rows:
             allocation = self._allocation(row)
