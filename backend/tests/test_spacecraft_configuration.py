@@ -61,7 +61,8 @@ def spacecraft_payload(mass: float = 12.0) -> dict:
                 "subsystem": "communications",
                 "mass": engineering_value("mass-com", "Communications mass", 8.0, "kg", "mass"),
                 "power_draw": engineering_value("draw-com", "Communications load", 20.0, "W", "power"),
-                "load_duty_cycle": 0.25,\n                "generation_duty_cycle": 0.0,
+                "load_duty_cycle": 0.25,
+                "generation_duty_cycle": 0.0,
             },
         ],
     }
