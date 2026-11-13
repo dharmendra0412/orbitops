@@ -6,8 +6,8 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
-from app.storage.manifests import ManifestStore
 from app.ephemeris.kernels import SpiceKernelRecord, SpiceKernelRegistration
+from app.storage.manifests import ManifestStore
 
 
 class SpiceKernelAlreadyExistsError(Exception):
