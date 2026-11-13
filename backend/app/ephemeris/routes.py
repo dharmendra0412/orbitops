@@ -1,6 +1,7 @@
 """SPICE kernel metadata registration and bounded artifact acquisition API."""
 import hashlib
 import os
+import stat
 import tempfile
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -33,6 +34,51 @@ from app.storage.spice_kernels import SpiceKernelAlreadyExistsError, SpiceKernel
 router = APIRouter(prefix="/ephemeris/spice/kernels", tags=["ephemeris-provenance"])
 MAX_KERNEL_UPLOAD_BYTES = 1024 * 1024 * 1024
 UPLOAD_CHUNK_BYTES = 1024 * 1024
+
+
+def _publish_content_addressed_artifact(
+    temporary_path: Path,
+    artifact_path: Path,
+    *,
+    expected_sha256: str,
+    expected_size: int,
+) -> None:
+    """Publish without replacing an existing path and verify any concurrent winner."""
+    try:
+        os.chmod(temporary_path, 0o444)
+        try:
+            # A hard link is an atomic no-clobber publication on the same filesystem.
+            os.link(temporary_path, artifact_path, follow_symlinks=False)
+            return
+        except FileExistsError:
+            descriptor = os.open(
+                artifact_path,
+                os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
+            )
+            with os.fdopen(descriptor, "rb") as existing_file:
+                if not stat.S_ISREG(os.fstat(existing_file.fileno()).st_mode):
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Existing content-addressed artifact is not a regular file",
+                    )
+                existing_digest = hashlib.sha256()
+                existing_size = 0
+                while chunk := existing_file.read(UPLOAD_CHUNK_BYTES):
+                    existing_size += len(chunk)
+                    existing_digest.update(chunk)
+                if existing_size != expected_size or existing_digest.hexdigest() != expected_sha256:
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Existing content-addressed artifact failed integrity check",
+                    )
+                os.fchmod(existing_file.fileno(), 0o444)
+    except HTTPException:
+        raise
+    except OSError as error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to safely publish or verify the content-addressed artifact",
+        ) from error
 
 
 @lru_cache(maxsize=1)
@@ -134,19 +180,12 @@ async def upload_spice_kernel_artifact(
         storage_key = f"sha256/{computed_sha256[:2]}/{computed_sha256}"
         artifact_path = storage_root / storage_key
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
-        if artifact_path.exists():
-            existing_digest = hashlib.sha256()
-            with artifact_path.open("rb") as existing_file:
-                while chunk := existing_file.read(UPLOAD_CHUNK_BYTES):
-                    existing_digest.update(chunk)
-            if existing_digest.hexdigest() != computed_sha256:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Existing content-addressed artifact failed integrity check",
-                )
-            temporary_path.unlink(missing_ok=True)
-        else:
-            os.replace(temporary_path, artifact_path)
+        _publish_content_addressed_artifact(
+            temporary_path,
+            artifact_path,
+            expected_sha256=computed_sha256,
+            expected_size=size_bytes,
+        )
 
         artifact = SpiceKernelArtifactRecord(
             kernel_id=kernel_id,

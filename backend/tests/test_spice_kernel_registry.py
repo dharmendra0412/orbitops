@@ -353,6 +353,7 @@ def test_inspection_rejects_artifact_changed_after_acquisition(tmp_path, monkeyp
         )
         assert uploaded.status_code == 201
         artifact_path = tmp_path / "artifacts" / uploaded.json()["storage_key"]
+        artifact_path.chmod(0o600)
         artifact_path.write_bytes(b"changed after acquisition")
 
         inspected = client.post("/api/v1/ephemeris/spice/kernels/tampered-artifact/inspection")
@@ -505,6 +506,7 @@ def test_utc_to_et_rejects_lsk_artifact_tampering_after_inspection(tmp_path, mon
         assert uploaded.status_code == 201
         assert client.post("/api/v1/ephemeris/spice/kernels/tampered-lsk/inspection").status_code == 201
         artifact_path = tmp_path / "artifacts" / uploaded.json()["storage_key"]
+        artifact_path.chmod(0o600)
         artifact_path.write_bytes(b"tampered LSK")
 
         converted = client.post(
@@ -701,7 +703,9 @@ def test_frame_transform_rejects_fk_artifact_tampering(tmp_path, monkeypatch):
         assert client.post(
             "/api/v1/ephemeris/spice/kernels/tampered-frame-fk/inspection"
         ).status_code == 201
-        (tmp_path / "artifacts" / uploaded.json()["storage_key"]).write_bytes(b"tampered FK")
+        artifact_path = tmp_path / "artifacts" / uploaded.json()["storage_key"]
+        artifact_path.chmod(0o600)
+        artifact_path.write_bytes(b"tampered FK")
 
         response = client.post(
             "/api/v1/ephemeris/spice/kernels/tampered-frame-fk/frame-transformations",
@@ -709,5 +713,72 @@ def test_frame_transform_rejects_fk_artifact_tampering(tmp_path, monkeypatch):
         )
         assert response.status_code == 422
         assert "no longer matches" in response.json()["detail"]
+    finally:
+        clear_overrides()
+
+
+
+def test_artifact_upload_rejects_preexisting_symlink_at_content_addressed_path(
+    tmp_path, monkeypatch
+):
+    configure_store(tmp_path)
+    storage_root = tmp_path / "artifacts"
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", storage_root)
+    content = b"valid bytes whose digest is already known"
+    digest = hashlib.sha256(content).hexdigest()
+    registration = payload("preexisting-symlink")
+    registration["sha256"] = digest
+    try:
+        assert client.post(
+            "/api/v1/ephemeris/spice/kernels", json=registration
+        ).status_code == 201
+        artifact_path = storage_root / "sha256" / digest[:2] / digest
+        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        external_target = tmp_path / "external-target.bin"
+        external_target.write_bytes(content)
+        artifact_path.symlink_to(external_target)
+
+        response = client.post(
+            "/api/v1/ephemeris/spice/kernels/preexisting-symlink/artifact",
+            files={"upload": ("kernel.bin", content, "application/octet-stream")},
+        )
+
+        assert response.status_code == 500
+        assert "safely publish or verify" in response.json()["detail"]
+        assert external_target.read_bytes() == content
+        assert client.get(
+            "/api/v1/ephemeris/spice/kernels/preexisting-symlink/artifact"
+        ).status_code == 404
+    finally:
+        clear_overrides()
+
+
+def test_artifact_upload_reuses_only_matching_regular_content_addressed_file(
+    tmp_path, monkeypatch
+):
+    configure_store(tmp_path)
+    storage_root = tmp_path / "artifacts"
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", storage_root)
+    content = b"identical content can safely be deduplicated"
+    digest = hashlib.sha256(content).hexdigest()
+    registration = payload("existing-valid-artifact")
+    registration["sha256"] = digest
+    try:
+        assert client.post(
+            "/api/v1/ephemeris/spice/kernels", json=registration
+        ).status_code == 201
+        artifact_path = storage_root / "sha256" / digest[:2] / digest
+        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        artifact_path.write_bytes(content)
+        artifact_path.chmod(0o600)
+
+        response = client.post(
+            "/api/v1/ephemeris/spice/kernels/existing-valid-artifact/artifact",
+            files={"upload": ("kernel.bin", content, "application/octet-stream")},
+        )
+
+        assert response.status_code == 201, response.text
+        assert artifact_path.read_bytes() == content
+        assert artifact_path.stat().st_mode & 0o777 == 0o444
     finally:
         clear_overrides()
