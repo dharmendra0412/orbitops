@@ -24,6 +24,16 @@ Duplicate identifiers return HTTP 409. List operations are paginated. Registrati
 
 The application reads the uploaded file in 1 MiB chunks and enforces a 1 GiB maximum. It writes to a temporary staging file, computes SHA-256 over the received bytes, and compares the computed digest with the registered digest. A mismatch returns HTTP 422 and the staging file is removed. A successful match is moved into content-addressed storage at `sha256/{first-two-hex}/{full-sha256}`; the resulting metadata is appended to SQLite. A kernel can have one acquired artifact record; repeat uploads return HTTP 409.
 
+### Read-only crash-recovery audit
+
+Run the report-only audit from the repository root on a supported POSIX host:
+
+```bash
+PYTHONPATH=backend python backend/scripts/audit_spice_artifacts.py --stale-after-seconds 3600
+```
+
+The command compares content-addressed files with persisted artifact references while holding the same per-prefix lock used by upload publication. It reports valid referenced files, valid unreferenced files as `orphan_candidate`, digest/size mismatches, and unsafe entries. Staging files older than the selected threshold are labelled `stale_candidate_review_only`; age alone cannot prove that an upload is abandoned. The audit is strictly read-only: it never deletes, renames, chmods, or repairs files. Review and back up the storage volume and database before any separately designed cleanup operation. The database and storage root must refer to the same deployment instance.
+
 Configure the storage root with `SPICE_KERNEL_STORAGE_PATH`; the default is `data/spice-kernels`. Deployments should use a dedicated volume with restrictive filesystem permissions, backups, monitoring, and sufficient capacity. Configure an ingress/reverse-proxy request-body limit as well: the application-level limit is not a substitute for an upstream HTTP body-size limit because multipart parsing may spool data before the route processes it.
 
 ## Kernel inspection API

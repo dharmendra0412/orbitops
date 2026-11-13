@@ -150,6 +150,18 @@ class SpiceKernelStore:
             ).fetchone()
         return SpiceKernelArtifactRecord.model_validate_json(row["payload_json"]) if row else None
 
+    def list_artifacts(self) -> list[SpiceKernelArtifactRecord]:
+        """Return persisted artifact references in stable kernel-ID order."""
+        with self._connection() as connection:
+            rows = connection.execute(
+                """SELECT payload_json FROM spice_kernel_artifacts
+                   ORDER BY kernel_id ASC"""
+            ).fetchall()
+        return [
+            SpiceKernelArtifactRecord.model_validate_json(row["payload_json"])
+            for row in rows
+        ]
+
 
     def create_inspection(self, inspection: SpiceKernelInspectionRecord) -> SpiceKernelInspectionRecord:
         payload = json.dumps(
