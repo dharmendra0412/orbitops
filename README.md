@@ -128,13 +128,13 @@ Requirement allocations are append-only and must reference a requirement in the 
 
 ### SPICE kernel provenance, artifact acquisition, and inspection
 
-- \`POST /api/v1/ephemeris/spice/kernels\` — register user-declared kernel identity, type, source URL, release, SHA-256, optional coverage, time system, frames, targets, and terms.
-- \`GET /api/v1/ephemeris/spice/kernels\` — list registrations with limit/offset pagination.
-- \`GET /api/v1/ephemeris/spice/kernels/{kernel_id}\` — retrieve one immutable registration.
-- \`POST /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact\` — upload a kernel binary, compute SHA-256 server-side, and persist it only when it matches the registered digest (1 GiB application limit).
-- \`GET /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact\` — retrieve artifact acquisition metadata.
-- \`POST /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection\` — inspect the acquired kernel with pinned SpiceyPy/CSPICE 8.4.0.
-- \`GET /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection\` — retrieve the immutable inspection result.
+- `POST /api/v1/ephemeris/spice/kernels` — register user-declared kernel identity, type, source URL, release, SHA-256, optional coverage, time system, frames, targets, and terms.
+- `GET /api/v1/ephemeris/spice/kernels` — list registrations with limit/offset pagination.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}` — retrieve one immutable registration.
+- `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact` — upload a kernel binary, compute SHA-256 server-side, and persist it only when it matches the registered digest (1 GiB application limit).
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact` — retrieve artifact acquisition metadata.
+- `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection` — inspect the acquired kernel with pinned SpiceyPy/CSPICE 8.4.0.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection` — retrieve the immutable inspection result.
 
 Inspection re-hashes the stored artifact, verifies the detected kernel family, extracts SPK object IDs and raw ET coverage intervals, binary PCK frame class IDs, and DSK object IDs. Other registered types receive header/type inspection only. Parsing runs in a time-limited subprocess with best-effort POSIX resource limits. Meta-kernels are never furnished or loaded.
 
