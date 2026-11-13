@@ -1,5 +1,7 @@
 import hashlib
+import os
 import stat
+from pathlib import Path
 
 import pytest
 
@@ -66,3 +68,42 @@ def test_verified_snapshot_rejects_final_symlink(tmp_path):
             artifact_label="LSK",
         ):
             pytest.fail("symlinked source must never be yielded")
+
+
+
+def test_verified_snapshot_uses_the_open_descriptor_if_source_path_is_replaced(
+    tmp_path, monkeypatch
+):
+    original = b"original bytes from the opened descriptor"
+    replacement = b"replacement bytes at the same path"
+    source = tmp_path / "kernel.tls"
+    source.write_bytes(original)
+    replacement_path = tmp_path / "replacement.tls"
+    replacement_path.write_bytes(replacement)
+    expected_digest = hashlib.sha256(original).hexdigest()
+
+    real_open = os.open
+    replaced = False
+
+    def open_then_replace(path, flags, *args, **kwargs):
+        nonlocal replaced
+        descriptor = real_open(path, flags, *args, **kwargs)
+        if Path(path) == source and not replaced:
+            os.replace(replacement_path, source)
+            replaced = True
+        return descriptor
+
+    monkeypatch.setattr(os, "open", open_then_replace)
+
+    with verified_artifact_snapshot(
+        source,
+        expected_sha256=expected_digest,
+        max_bytes=1024,
+        artifact_label="LSK",
+    ) as (snapshot, actual_digest):
+        assert replaced
+        assert source.read_bytes() == replacement
+        assert snapshot.read_bytes() == original
+        assert actual_digest == expected_digest
+
+    assert not snapshot.exists()
