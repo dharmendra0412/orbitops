@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -146,3 +148,42 @@ def test_unknown_project_returns_404(tmp_path) -> None:
         assert response.status_code == 404
     finally:
         app.dependency_overrides.pop(get_spacecraft_configuration_store, None)
+
+
+def test_concurrent_spacecraft_revisions_are_serialized(tmp_path) -> None:
+    database = tmp_path / "spacecraft-concurrent.sqlite3"
+    projects = MissionProjectStore(database)
+    store = SpacecraftConfigurationStore(database)
+    project = projects.create(MissionProjectDraft.model_validate(project_payload()))
+    store.create(project.project_id, SpacecraftConfigurationDraft.model_validate(spacecraft_payload()))
+
+    revision_count = 8
+    with ThreadPoolExecutor(max_workers=revision_count) as executor:
+        records = list(
+            executor.map(
+                lambda index: store.create_revision(
+                    project.project_id,
+                    SpacecraftConfigurationDraft.model_validate(
+                        spacecraft_payload(20.0 + index)
+                    ),
+                ),
+                range(revision_count),
+            )
+        )
+
+    assert sorted(record.latest_revision for record in records) == list(
+        range(2, revision_count + 2)
+    )
+    latest = store.get(project.project_id)
+    assert latest is not None
+    assert latest.latest_revision == revision_count + 1
+
+    with store._connection() as connection:
+        rows = connection.execute(
+            "SELECT revision_number FROM spacecraft_configuration_revisions "
+            "WHERE configuration_id = ? ORDER BY revision_number",
+            (str(latest.configuration_id),),
+        ).fetchall()
+    assert [row["revision_number"] for row in rows] == list(
+        range(1, revision_count + 2)
+    )
