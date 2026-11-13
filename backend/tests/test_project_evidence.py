@@ -1,8 +1,8 @@
-from datetime import UTC, datetime
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
+from app.ingestion.manifests import DatasetManifest
 from app.main import app
 from app.missions.model_governance import ModelAssessmentCreate
 from app.missions.model_governance_routes import get_model_governance_store
@@ -71,7 +71,7 @@ def setup_stores(tmp_path):
     governance = ModelGovernanceStore(database)
     evidence = MissionEvidenceStore(database)
     project = projects.create(MissionProjectDraft.model_validate(mission_payload()))
-    manifests.create(__import__("app.ingestion.manifests", fromlist=["DatasetManifest"]).DatasetManifest.model_validate(dataset_manifest_payload()))
+    manifests.create(DatasetManifest.model_validate(dataset_manifest_payload()))
     assessment = governance.create(ModelAssessmentCreate.model_validate(assessment_payload()))
     app.dependency_overrides[get_mission_evidence_store] = lambda: evidence
     app.dependency_overrides[get_model_governance_store] = lambda: governance
