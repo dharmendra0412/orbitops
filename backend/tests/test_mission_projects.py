@@ -1,7 +1,10 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.missions.project_routes import get_mission_project_store
+from app.missions.projects import MissionProjectDraft
 from app.storage.mission_projects import MissionProjectStore
 
 client = TestClient(app)
@@ -98,3 +101,43 @@ def test_mission_project_rejects_unknown_fields() -> None:
     payload["unreviewed_flight_ready"] = True
     response = client.post("/api/v1/missions/projects", json=payload)
     assert response.status_code == 422
+
+
+def test_concurrent_revisions_are_serialized_without_gaps_or_duplicates(tmp_path) -> None:
+    store = MissionProjectStore(tmp_path / "mission-projects.sqlite3")
+    created = store.create(
+        MissionProjectDraft.model_validate(
+            mission_payload()
+        )
+    )
+
+    revision_count = 8
+    with ThreadPoolExecutor(max_workers=revision_count) as executor:
+        records = list(
+            executor.map(
+                lambda index: store.create_revision(
+                    created.project_id,
+                    __import__("app.missions.projects", fromlist=["MissionProjectDraft"]).MissionProjectDraft.model_validate(
+                        mission_payload(f"Concurrent revision {index}")
+                    ),
+                ),
+                range(revision_count),
+            )
+        )
+
+    assert sorted(record.latest_revision for record in records) == list(
+        range(2, revision_count + 2)
+    )
+    latest = store.get(created.project_id)
+    assert latest is not None
+    assert latest.latest_revision == revision_count + 1
+
+    with store._connection() as connection:
+        rows = connection.execute(
+            "SELECT revision_number FROM mission_project_revisions "
+            "WHERE project_id = ? ORDER BY revision_number",
+            (str(created.project_id),),
+        ).fetchall()
+    assert [row["revision_number"] for row in rows] == list(
+        range(1, revision_count + 2)
+    )

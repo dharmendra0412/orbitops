@@ -155,6 +155,10 @@ class MissionProjectStore:
             draft.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
         )
         with self._connection() as connection:
+            # Reserve the SQLite write lock before reading the current revision.
+            # This makes the read/increment/insert/update sequence atomic across
+            # concurrent requests and prevents two writers choosing the same number.
+            connection.execute("BEGIN IMMEDIATE")
             project = connection.execute(
                 "SELECT latest_revision FROM mission_projects WHERE project_id = ?",
                 (project_key,),
