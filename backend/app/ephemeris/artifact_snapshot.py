@@ -11,6 +11,34 @@ from pathlib import Path
 HASH_CHUNK_BYTES = 1024 * 1024
 
 
+def _open_source_without_symlink_components(source_path: Path) -> int:
+    """Open an absolute path by walking pinned directory descriptors without links."""
+    absolute_path = Path(os.path.abspath(source_path))
+    components = absolute_path.parts
+    if not components or components[0] != os.sep:
+        raise OSError("Artifact source path must be absolute")
+
+    directory_fd = os.open(os.sep, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+    try:
+        for component in components[1:-1]:
+            next_fd = os.open(
+                component,
+                os.O_RDONLY
+                | getattr(os, "O_DIRECTORY", 0)
+                | getattr(os, "O_NOFOLLOW", 0),
+                dir_fd=directory_fd,
+            )
+            os.close(directory_fd)
+            directory_fd = next_fd
+        return os.open(
+            components[-1],
+            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
+            dir_fd=directory_fd,
+        )
+    finally:
+        os.close(directory_fd)
+
+
 class ArtifactSnapshotError(Exception):
     """Raised when an artifact cannot be safely copied into a verified snapshot."""
 
@@ -31,10 +59,7 @@ def verified_artifact_snapshot(
     """
     source_fd: int | None = None
     try:
-        source_fd = os.open(
-            source_path,
-            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
-        )
+        source_fd = _open_source_without_symlink_components(source_path)
         if not stat.S_ISREG(os.fstat(source_fd).st_mode):
             raise ArtifactSnapshotError(
                 f"Content-addressed {artifact_label} artifact must be a regular file"
