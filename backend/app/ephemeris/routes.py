@@ -38,8 +38,18 @@ UPLOAD_CHUNK_BYTES = 1024 * 1024
 def _supports_secure_artifact_storage() -> bool:
     """Whether this runtime supports the POSIX descriptor-relative storage contract."""
     required_dir_fd_operations = (os.open, os.mkdir, os.link, os.chmod, os.unlink)
-    return os.name == "posix" and all(
-        operation in os.supports_dir_fd for operation in required_dir_fd_operations
+    required_no_follow_operations = (os.chmod, os.link)
+    return (
+        os.name == "posix"
+        and hasattr(os, "O_NOFOLLOW")
+        and hasattr(os, "O_DIRECTORY")
+        and all(
+            operation in os.supports_dir_fd for operation in required_dir_fd_operations
+        )
+        and all(
+            operation in os.supports_follow_symlinks
+            for operation in required_no_follow_operations
+        )
     )
 
 
