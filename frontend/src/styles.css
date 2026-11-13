@@ -105,3 +105,8 @@ footer { margin-top: auto; min-height: 66px; border-top: 1px solid var(--line); 
 .model-field textarea:focus, .model-field select:focus { border-color: rgba(102,217,232,.7); }
 .model-field select { min-height: 42px; }
 .run-row .planet-chip { min-height: 34px; }
+
+.requirement-editor { margin-top: 20px; padding: 17px; border: 1px solid var(--line); border-radius: 10px; background: rgba(0,0,0,.12); display: flex; flex-direction: column; gap: 13px; }
+.requirement-editor .model-form { margin: 8px 0 2px; }
+.requirement-editor .model-field input { font-family: "Manrope", sans-serif; }
+.requirement-editor .run-row-main small { color: #91a5ba; font-size: 10px; line-height: 1.5; }
