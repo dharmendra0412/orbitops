@@ -374,6 +374,6 @@ def test_naif_reference_lsk_converts_j2000_epoch_and_utc_round_trip():
         utc_at_j2000 = spice.et2utc(0.0, "ISOC", 3)
         assert utc_at_j2000 == "2000-01-01T11:58:55.816"
         utc_round_trip_et = spice.str2et("2000 JAN 01 11:58:55.816 UTC")
-        assert abs(utc_round_trip_et) < 1e-6
+        assert abs(utc_round_trip_et) < 5e-4  # ISOC output is rounded to milliseconds
     finally:
         spice.kclear()
