@@ -1233,7 +1233,7 @@ export default function App() {
           </dl>
           <div className="model-assumptions">
             <strong>Identification area</strong>
-            {Object.keys(pds4Result.identification_area).length === 0 ? <p>No identification fields were found.</p> : <dl>{Object.entries(pds4Result.identification_area).map(([key, value]) => <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{value}</dd></div>)}</dl>}
+            {Object.keys(pds4Result.identification_area).length === 0 ? <p>No identification fields were found.</p> : <dl>{Object.entries(pds4Result.identification_area).map(([key, value]) => <div key={key}><dt>{key.replace(/_/g, " ")}</dt><dd>{value}</dd></div>)}</dl>}
             <strong>Observation area</strong>
             {Object.keys(pds4Result.observation_area).length === 0 ? <p>No selected observation metadata was found.</p> : <pre>{JSON.stringify(pds4Result.observation_area, null, 2)}</pre>}
             <strong>File areas and arrays</strong>
