@@ -64,7 +64,7 @@ class SpiceKernelRegistration(BaseModel):
         if (self.coverage_start is None) != (self.coverage_end is None):
             raise ValueError("coverage_start and coverage_end must be supplied together")
         if self.coverage_start is not None and self.coverage_end is not None:
-            if self.coverage_start.tzinfo is None or self.coverage_end.tzinfo is None:
+            if self.coverage_start.utcoffset() is None or self.coverage_end.utcoffset() is None:
                 raise ValueError("coverage timestamps must include a timezone")
             if self.coverage_end <= self.coverage_start:
                 raise ValueError("coverage_end must be later than coverage_start")
