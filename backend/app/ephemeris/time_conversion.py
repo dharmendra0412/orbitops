@@ -1,5 +1,5 @@
 """Controlled SPICE time conversion using an acquired and inspected LSK artifact."""
-import json
+import json  # noqa: I001
 import os
 import subprocess
 import sys
