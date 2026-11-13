@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.missions.projects import MissionProjectDraft
 from app.missions.project_routes import get_mission_project_store
 from app.storage.mission_projects import MissionProjectStore
 
@@ -105,7 +106,7 @@ def test_mission_project_rejects_unknown_fields() -> None:
 def test_concurrent_revisions_are_serialized_without_gaps_or_duplicates(tmp_path) -> None:
     store = MissionProjectStore(tmp_path / "mission-projects.sqlite3")
     created = store.create(
-        __import__("app.missions.projects", fromlist=["MissionProjectDraft"]).MissionProjectDraft.model_validate(
+        MissionProjectDraft.model_validate(
             mission_payload()
         )
     )
