@@ -82,3 +82,21 @@ class SpiceKernelRecord(BaseModel):
         "The kernel artifact has not been downloaded, parsed, furnished, or validated.",
         "Coverage and frame metadata are descriptive and have not been checked against kernel contents.",
     ])
+
+
+class SpiceKernelArtifactRecord(BaseModel):
+    """Server-computed artifact digest and content-addressed storage reference."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kernel_id: str
+    sha256: str
+    size_bytes: int = Field(ge=0)
+    storage_key: str
+    acquired_at: datetime
+    checksum_status: str = "matches_user_declared"
+    limitations: list[str] = Field(default_factory=lambda: [
+        "The digest was computed over the uploaded bytes and matches the registered user-declared digest.",
+        "A matching user-declared digest does not independently authenticate the source or publisher.",
+        "The artifact has not been parsed, furnished, or scientifically validated by a SPICE toolkit.",
+    ])
