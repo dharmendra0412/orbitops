@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.testclient import TestClient
 
@@ -19,7 +21,7 @@ def _limited_test_app() -> FastAPI:
         return {"size": len(await request.body())}
 
     @app.post("/multipart")
-    async def parse_upload(file: UploadFile = File()):
+    async def parse_upload(file: Annotated[UploadFile, File()]):
         return {"filename": file.filename}
 
     return app
