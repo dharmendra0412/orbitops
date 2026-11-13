@@ -1,9 +1,9 @@
 # ORBITOPS Engineering Status
 
 **Snapshot date:** 2026-11-13  
-**Branch:** feature/model-verification-validation  
+**Branch:** feature/revision-impact-analysis  
 **Product scope:** Multi-planetary mission engineering foundation  
-**Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and requirement-to-component traceability, and initial model verification/validation evidence governance implemented; engineering acceptance remains pending.
+**Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and requirement-to-component traceability, and model verification/validation evidence governance, and historical revision change-impact analysis implemented; engineering acceptance remains pending.
 
 ## Implemented
 
@@ -25,6 +25,7 @@
 - Append-only requirement-to-component allocations validated against the latest mission and spacecraft revisions.
 - Latest-revision traceability matrix with unallocated requirement counts, stale component references, and verification evidence outcome counts.
 - Registered model catalogue for the current propulsion and power prototypes, with append-only verification/validation assessment records and derived credibility states.
+- Historical mission and spacecraft revision comparison reporting added, removed, and modified requirements/components plus allocations requiring engineering review.
 - Transparent component mass totals, user-declared percentage mass margin, and average power generation/load totals using explicit duty-cycle inputs.
 - Backend tests covering configuration persistence, revision history, dimensional rejection, duplicate component identifiers and budget arithmetic.
 - Frontend controls for mission projects, verification evidence, dataset checksum inspection, propulsion delta-v, power balance and recent model-run retrieval.
@@ -51,7 +52,7 @@ Spacecraft component values inherit their own provenance and credibility fields,
 
 ## Not implemented
 
-- Historical traceability matrix comparison across mission/configuration revisions and formal verification closure.
+- Historical traceability matrix comparison across mission/configuration revisions and formal verification closure. A first revision change-impact comparison endpoint is now available, but historical allocation snapshots and automated evidence invalidation remain unimplemented.
 - Mission lifecycle state transitions, controlled approvals and independent verification/validation acceptance.
 - NASA/PDS product download, label parsing, decoding, coordinate/time transformations.
 - Curated body-specific ephemerides, gravity, atmosphere, radiation, terrain and thermal datasets.
@@ -96,3 +97,9 @@ Allocations are append-only. A component removed from a later spacecraft configu
 - GET /api/v1/models/governance/assessments — list immutable assessment records, optionally filtered by model ID and version.
 
 The initial registry contains the ideal rocket-equation prototype and constant-power energy-balance prototype. A model is `unvalidated` until a verification pass is recorded; a verification pass advances it to `verified`; verification and validation passes together advance it to `validated`. A later fail or inconclusive outcome for either assessment type changes the derived state to `review_required`. The status is calculated from the latest recorded outcome for each assessment type. It is not an independent audit, certification, flight qualification, or operational approval. Assessment summaries and evidence references are user-entered and not independently authenticated. Validation dataset references, when supplied, must identify a registered dataset manifest.
+
+## Historical revision change-impact API
+
+- GET /api/v1/missions/projects/{project_id}/traceability/change-impact — compare a baseline and target mission revision plus a baseline and target spacecraft configuration revision. All four revision numbers are required query parameters.
+
+The report identifies added, removed and modified mission requirements and spacecraft components. It flags current project-scoped allocations that reference modified or removed requirements/components. This is a review aid, not a technical acceptability decision. Allocation records are not revisioned, historical verification evidence is not automatically invalidated, and impact severity is not inferred. Reviewers must assess each affected allocation and evidence record.
