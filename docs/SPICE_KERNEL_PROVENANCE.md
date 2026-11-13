@@ -1,8 +1,8 @@
-# SPICE kernel provenance and artifact acquisition
+# SPICE kernel provenance, acquisition, and inspection
 
 ## Purpose
 
-ORBITOPS records declared kernel provenance before an artifact is used. The artifact acquisition increment accepts an explicit user upload, computes its digest, compares it with the digest in the registered metadata, and stores matching bytes by content hash. It does not fetch a user-supplied URL.
+ORBITOPS records declared kernel provenance before an artifact is used. The acquisition workflow accepts an explicit user upload, computes its digest, compares it with the digest in registered metadata, and stores matching bytes by content hash. The inspection workflow then invokes a pinned CSPICE toolkit in a bounded child process to inspect the file header and selected binary index metadata.
 
 ## Registration contract
 
@@ -24,20 +24,42 @@ Duplicate identifiers return HTTP 409. List operations are paginated. Registrati
 
 The application reads the uploaded file in 1 MiB chunks and enforces a 1 GiB maximum. It writes to a temporary staging file, computes SHA-256 over the received bytes, and compares the computed digest with the registered digest. A mismatch returns HTTP 422 and the staging file is removed. A successful match is moved into content-addressed storage at \`sha256/{first-two-hex}/{full-sha256}\`; the resulting metadata is appended to SQLite. A kernel can have one acquired artifact record; repeat uploads return HTTP 409.
 
-Configure the storage root with \`SPICE_KERNEL_STORAGE_PATH\`; the default is \`data/spice-kernels\`. The staging directory is beneath this root. Deployments should put this directory on a dedicated volume with restrictive filesystem permissions, backups, monitoring, and sufficient capacity. Configure an ingress/reverse-proxy request-body limit as well: the application-level limit is not a substitute for an upstream HTTP body-size limit because multipart parsing may spool data before the route processes it.
+Configure the storage root with \`SPICE_KERNEL_STORAGE_PATH\`; the default is \`data/spice-kernels\`. Deployments should use a dedicated volume with restrictive filesystem permissions, backups, monitoring, and sufficient capacity. Configure an ingress/reverse-proxy request-body limit as well: the application-level limit is not a substitute for an upstream HTTP body-size limit because multipart parsing may spool data before the route processes it.
+
+## Kernel inspection API
+
+- \`POST /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection\` — inspect an acquired artifact once and append an immutable inspection record.
+- \`GET /api/v1/ephemeris/spice/kernels/{kernel_id}/inspection\` — retrieve that inspection record.
+
+The optional backend dependency is pinned to \`spiceypy==8.4.0\` (NAIF CSPICE wrapper). CI installs the \`spice\` extra so the same toolkit version is exercised in automated tests.
+
+Before parsing, ORBITOPS re-computes the stored artifact SHA-256 and rejects missing, changed, or path-escaped files. It invokes a child Python process with a 12-second wall-clock timeout. On POSIX, the worker applies CPU, address-space, file-size, open-file, and core-dump resource limits. This is process separation with best-effort resource limits, not a complete operating-system sandbox; production deployment still requires a hardened isolated worker/container with no network access and strict filesystem permissions.
+
+CSPICE \`getfat\` inspects the file architecture and kernel type. A mismatch against the registered family is rejected. For SPK files, the worker extracts object IDs and per-object coverage intervals using CSPICE SPK routines. Coverage is returned as raw ET seconds past J2000 TDB and is not converted to UTC. For binary PCK files, frame class IDs are extracted. For DSK files, object IDs are extracted. Other registered kernel families receive header/type inspection only in this increment.
+
+Meta-kernels are never furnished or loaded. The worker does not call \`furnsh\`, so a user-supplied meta-kernel cannot cause CSPICE to follow arbitrary local paths. Text-kernel variables, CK inventory/coverage, and full segment-level summaries are not yet extracted. Output collections are capped; truncated results are explicitly flagged.
 
 ## Explicit trust boundary
 
 The artifact record uses \`checksum_status=matches_user_declared\`. This means only that ORBITOPS computed a digest over the uploaded bytes and it equals the value previously declared by the user. It does not establish who published the bytes, whether the source URL is authentic, whether the declared checksum came from a trusted independent channel, or whether the licence/terms are valid. The API does not download from arbitrary URLs, follow redirects, or perform remote network acquisition.
 
-The uploaded file is untrusted input. It is not parsed or furnished by a SPICE toolkit, and the recorded coverage, frame, time-system, and target metadata are not compared with kernel contents. Authentication and per-user/team authorization are not implemented in the current application; do not expose this endpoint as a public or multi-tenant production upload service.
+CSPICE successfully identifying a file and extracting index metadata is a structural inspection result, not a scientific validation. Coverage, frames, time-system, and target declarations are not independently compared with authoritative mission requirements. No ephemeris evaluation, frame transformation, trajectory propagation, uncertainty analysis, or mission prediction is implemented by this increment.
+
+Authentication and per-user/team authorization are not implemented in the current application; do not expose artifact upload or inspection as a public or multi-tenant production service.
 
 ## Next engineering gates
 
-1. Add independent trusted-digest provenance (for example, a separately captured NAIF release manifest/signature where available) and retain the evidence used for comparison.
-2. Inspect file format and kernel metadata using a pinned SPICE toolkit build in an isolated worker with resource limits.
-3. Record toolkit build, kernel load order, and inspection outputs in immutable run/evidence records.
-4. Add deterministic time conversion and frame transformation tests using authoritative NAIF reference vectors.
+1. Add independent trusted-digest provenance (for example, separately captured NAIF release manifest/signature evidence where available).
+2. Harden worker isolation at deployment level and add a reproducible worker image/build manifest.
+3. Expand bounded metadata inspection to CK, text-kernel variables, and segment-level summaries with explicit resource ceilings.
+4. Add deterministic time conversion and frame transformation tests using authoritative NAIF reference vectors and a reviewed kernel set.
 5. Only then expose bounded ephemeris queries with provenance, input/output frames, time scales, and kernel set captured in immutable run records.
 
-No kernel parsing, furnishing, ephemeris evaluation, frame transformation, trajectory propagation, or mission prediction is implemented by this increment.
+## References
+
+- [SpiceyPy 8.4.0 documentation](https://spiceypy.readthedocs.io/en/main/)
+- [SpiceyPy PyPI release and package provenance](https://pypi.org/project/spiceypy/)
+- [NAIF SPK Required Reading](https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs/C/req/spk.html)
+- [NAIF Kernel Required Reading](https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs/C/req/kernel.html)
+
+No scientific validation or mission-readiness claim is made.
