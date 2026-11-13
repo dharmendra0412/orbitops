@@ -79,7 +79,7 @@ class SpiceKernelRecord(BaseModel):
     limitations: list[str] = Field(default_factory=lambda: [
         "The SHA-256 value is user-declared and has not been computed by ORBITOPS.",
         "The source URL and licence/terms have not been independently authenticated.",
-        "The kernel artifact has not been downloaded, parsed, furnished, or validated.",
+        "This metadata registration does not itself validate the uploaded artifact; acquisition and inspection evidence are stored separately.",
         "Coverage and frame metadata are descriptive and have not been checked against kernel contents.",
     ])
 
