@@ -50,11 +50,26 @@ CSPICE `getfat` inspects the file architecture and kernel type. A mismatch again
 
 Meta-kernels are never furnished or loaded. The worker does not call `furnsh`, so a user-supplied meta-kernel cannot cause CSPICE to follow arbitrary local paths. Text-kernel variables, CK inventory/coverage, and full segment-level summaries are not yet extracted. Output collections are capped; truncated results are explicitly flagged.
 
+
+## Bounded fixed-frame transformation API
+
+- `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/frame-transformations` — calculate a position or state transformation using one acquired and inspected FK.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/frame-transformations` — list immutable transformation records with limit/offset pagination.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/frame-transformations/{transformation_id}` — retrieve one immutable result.
+
+The request names `from_frame` and `to_frame`, supplies `et_seconds` (seconds past J2000 TDB), and selects `transform_type` as `position` or `state`. An optional input vector must contain exactly 3 values for a position transformation or 6 values for a state transformation. The response preserves the 3x3 `PXFORM` or 6x6 `SXFORM` matrix, optional transformed vector, frame names, ET epoch, exact FK SHA-256, SpiceyPy version, and transformation time.
+
+This first increment deliberately supports only built-in inertial frames (SPICE class 1) and fixed-offset text-kernel frames (class 4) described by one acquired KPL/FK artifact. The worker loads only that FK, verifies its size (10 MiB maximum) and digest in the worker, and runs with a 12-second timeout plus best-effort POSIX resource limits. It rejects requested frames whose reported class is not 1 or 4. PCK body-fixed frames (class 2), CK spacecraft frames (class 3), dynamic frames (class 5), and switch frames (class 6) are not supported; CK/SCLK, PCK, and other multi-kernel dependency sets are not loaded. CSPICE will reject unresolved dependencies in an FK's frame definitions.
+
+The optional vector is transformed by left multiplication with the returned matrix. Position transformations use `PXFORM` (3x3); state transformations use `SXFORM` (6x6), preserving the position/velocity coupling when supplied by CSPICE. The ET epoch is explicit and is not implicitly interpreted as UTC. Convert UTC separately with a selected LSK and retain both records.
+
+The test fixture `backend/tests/fixtures/orbitops_fixed_frame_reference.tf` defines a 90-degree fixed offset from J2000. Regression tests check the expected inverse mapping from J2000 into the fixed frame, verify both position and state transformations, and exercise unknown-frame rejection, invalid vector dimensions, non-FK rejection, and post-inspection artifact tampering. This deterministic fixture verifies software wiring and matrix convention; it is not an independent real-spacecraft frame calibration or scientific validation.
+
 ## Explicit trust boundary
 
 The artifact record uses `checksum_status=matches_user_declared`. This means only that ORBITOPS computed a digest over the uploaded bytes and it equals the value previously declared by the user. It does not establish who published the bytes, whether the source URL is authentic, whether the declared checksum came from a trusted independent channel, or whether the licence/terms are valid. The API does not download from arbitrary URLs, follow redirects, or perform remote network acquisition.
 
-CSPICE successfully identifying a file and extracting index metadata is a structural inspection result, not a scientific validation. Coverage, frames, time-system, and target declarations are not independently compared with authoritative mission requirements. No ephemeris evaluation, frame transformation, trajectory propagation, uncertainty analysis, or mission prediction is implemented by this increment.
+CSPICE successfully identifying a file and extracting index metadata is a structural inspection result, not a scientific validation. Coverage, frames, time-system, and target declarations are not independently compared with authoritative mission requirements. No ephemeris evaluation, trajectory propagation, uncertainty analysis, or mission prediction is implemented by this increment.
 
 Authentication and per-user/team authorization are not implemented in the current application; do not expose artifact upload or inspection as a public or multi-tenant production service.
 
@@ -63,8 +78,8 @@ Authentication and per-user/team authorization are not implemented in the curren
 1. Add independent trusted-digest provenance (for example, separately captured NAIF release manifest/signature evidence where available).
 2. Harden worker isolation at deployment level and add a reproducible worker image/build manifest.
 3. Expand bounded metadata inspection to CK, text-kernel variables, and segment-level summaries with explicit resource ceilings.
-4. Add frame-transformation tests using authoritative NAIF reference vectors and a reviewed kernel set, then build bounded transformations with captured frame and kernel provenance.
-5. Only then expose bounded ephemeris queries with provenance, input/output frames, time scales, and kernel set captured in immutable run records.
+4. Extend transformation support to reviewed PCK/FK kernel sets with explicit dependency closure, frame-class checks, and authoritative NAIF reference vectors; separately add CK/SCLK support only after bounded clock and attitude coverage inspection.
+5. Add bounded ephemeris queries only after trusted kernel-set provenance, frame/time dependency validation, and independent reference testing.
 
 ## Independent NAIF time-reference regression
 
@@ -77,5 +92,8 @@ Authentication and per-user/team authorization are not implemented in the curren
 - [SpiceyPy PyPI release and package provenance](https://pypi.org/project/spiceypy/)
 - [NAIF SPK Required Reading](https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs/C/req/spk.html)
 - [NAIF Kernel Required Reading](https://naif.jpl.nasa.gov/pub/naif/misc/toolkit_docs/C/req/kernel.html)
+- [NAIF Frames Required Reading](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/frames.html) — frame classes and fixed-offset TK frame matrix convention.
+- [NAIF PXFORM](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/pxform_c.html) — position-vector transformation.
+- [NAIF SXFORM](https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/sxform_c.html) — position/velocity state transformation.
 
 No scientific validation or mission-readiness claim is made.
