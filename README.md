@@ -125,6 +125,15 @@ Requirement allocations are append-only and must reference a requirement in the 
 - Fixed regression vectors use the JPL DE440 Earth gravitational parameter and exercise circular velocity, vis-viva speed, Keplerian period, escape velocity, and ideal Hohmann transfer outputs.
 - See [orbital reference benchmarks](docs/ORBITAL_REFERENCE_BENCHMARKS.md) for the constant, test geometry, expected outputs, source, and validation boundaries. These checks are software regression evidence; orbital model credibility remains UNVALIDATED.
 
+
+### SPICE kernel provenance registry
+
+- `POST /api/v1/ephemeris/spice/kernels` — register user-declared kernel identity, type, source URL, release, SHA-256, optional coverage, time system, frames, targets, and terms.
+- `GET /api/v1/ephemeris/spice/kernels` — list registrations with limit/offset pagination.
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}` — retrieve one immutable registration.
+
+The registry stores metadata only. The supplied checksum is not computed by ORBITOPS; source, terms, coverage, and frame declarations are not authenticated. Kernel files are not downloaded, parsed, furnished, or validated. See [SPICE kernel provenance](docs/SPICE_KERNEL_PROVENANCE.md) for scope and the next integration gates.
+
 ### PDS4 label inspection API
 
 - `POST /api/v1/datasets/pds4/inspect` — inspect a small PDS4 XML label and extract selected identification, observation, file, and array metadata. The frontend includes a PDS4 label upload and metadata preview panel.
