@@ -10,7 +10,6 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
-
 SHA256_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
 
 
