@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 from datetime import UTC, datetime
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from app.ephemeris.kernels import SpiceKernelInspectionRecord
@@ -73,14 +74,21 @@ def inspect_artifact(
 
     try:
         result = json.loads(completed.stdout)
-        import spiceypy
+        try:
+            toolkit_version = version("spiceypy")
+        except PackageNotFoundError as error:
+            raise SpiceInspectionError(
+                "SPICE inspection is unavailable; install the pinned spice optional dependency"
+            ) from error
 
         return SpiceKernelInspectionRecord(
             kernel_id=kernel_id,
             artifact_sha256=actual_sha256,
-            toolkit_version=spiceypy.__version__,
+            toolkit_version=toolkit_version,
             inspected_at=datetime.now(UTC),
             **result,
         )
+    except SpiceInspectionError:
+        raise
     except (json.JSONDecodeError, TypeError, ValueError, KeyError) as error:
         raise SpiceInspectionError("SPICE inspection worker returned an invalid result") from error
