@@ -24,7 +24,7 @@ def apply_process_limits() -> None:
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
 
 
-def _frame_class(name: str) -> int:
+def _frame_class(name: str, spice) -> int:
     frame_id = int(spice.namfrm(name))
     if frame_id == 0:
         raise ValueError(f"Unknown SPICE frame: {name}")
@@ -72,8 +72,8 @@ def main() -> int:
             raise ValueError("Frame transformation requires a text FK (KPL/FK) artifact")
 
         spice.furnsh(str(path))
-        _frame_class(from_frame)
-        _frame_class(to_frame)
+        _frame_class(from_frame, spice)
+        _frame_class(to_frame, spice)
 
         if transform_type == "position":
             matrix = spice.pxform(from_frame, to_frame, et_seconds)
