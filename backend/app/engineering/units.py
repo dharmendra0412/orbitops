@@ -13,6 +13,7 @@ class Dimension(StrEnum):
     TIME = "time"
     TEMPERATURE = "temperature"
     VELOCITY = "velocity"
+    GRAVITATIONAL_PARAMETER = "gravitational_parameter"
     ACCELERATION = "acceleration"
     FORCE = "force"
     PRESSURE = "pressure"
@@ -39,6 +40,8 @@ UNIT_DIMENSIONS: dict[str, Dimension] = {
     "degC": Dimension.TEMPERATURE,
     "m/s": Dimension.VELOCITY,
     "km/s": Dimension.VELOCITY,
+    "m^3/s^2": Dimension.GRAVITATIONAL_PARAMETER,
+    "km^3/s^2": Dimension.GRAVITATIONAL_PARAMETER,
     "m/s^2": Dimension.ACCELERATION,
     "N": Dimension.FORCE,
     "Pa": Dimension.PRESSURE,

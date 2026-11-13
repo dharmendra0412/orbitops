@@ -1,9 +1,9 @@
 # ORBITOPS Engineering Status
 
 **Snapshot date:** 2026-11-13  
-**Branch:** feature/project-evidence-linking  
+**Branch:** feature/orbital-mechanics-foundation  
 **Product scope:** Multi-planetary mission engineering foundation  
-**Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and requirement-to-component traceability, and model verification/validation evidence governance, and historical revision change-impact analysis, and frontend checksum-to-manifest registration workflow, and consolidated mission review package, and project-scoped dataset/model evidence associations implemented; engineering acceptance remains pending.
+**Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and requirement-to-component traceability, and model verification/validation evidence governance, and historical revision change-impact analysis, and frontend checksum-to-manifest registration workflow, and consolidated mission review package, and project-scoped dataset/model evidence associations, and two-body Keplerian orbital mechanics prototypes implemented; engineering acceptance remains pending.
 
 ## Implemented
 
@@ -59,7 +59,7 @@ Spacecraft component values inherit their own provenance and credibility fields,
 - Mission lifecycle state transitions, controlled approvals and independent verification/validation acceptance.
 - NASA/PDS product download, label parsing, decoding, coordinate/time transformations.
 - Curated body-specific ephemerides, gravity, atmosphere, radiation, terrain and thermal datasets.
-- Interplanetary trajectory propagation, launch/arrival windows, orbit insertion and transfer design.
+- Interplanetary trajectory propagation, launch/arrival windows, high-fidelity orbit insertion and transfer design. The current Hohmann calculator is an ideal circular/coplanar two-body estimate only.
 - Destination-specific entry, descent and landing, surface mobility or sample-return models.
 - Battery state-of-charge, thermal network, communications link budget and integrated mission simulation.
 - Independent verification/validation, uncertainty quantification, sensitivity studies and formal acceptance evidence. The new model governance service records assessment entries but does not perform the independent reviews itself.
@@ -127,3 +127,13 @@ The package derives an evidence completeness state: `incomplete`, `review_requir
 - GET /api/v1/missions/projects/{project_id}/evidence/model-assessments — list linked model assessment records and their project-specific rationale.
 
 Associations are append-only and do not duplicate or modify the underlying manifest/assessment records. The review package now includes these linked references. Dataset source URLs, provider details, model assessment summaries, and evidence references remain user-entered metadata; linking does not independently authenticate them or validate scientific applicability.
+
+## Two-body orbital mechanics API
+
+- POST /api/v1/models/orbital-mechanics/circular-orbit — circular orbital velocity.
+- POST /api/v1/models/orbital-mechanics/vis-viva — bound elliptical-orbit speed.
+- POST /api/v1/models/orbital-mechanics/orbital-period — Keplerian period from semi-major axis.
+- POST /api/v1/models/orbital-mechanics/escape-velocity — local two-body escape velocity.
+- POST /api/v1/models/orbital-mechanics/hohmann-transfer — ideal two-burn Hohmann transfer delta-v and transfer time.
+
+The model requires SI inputs, including gravitational parameter in m^3/s^2 and orbital radii in m. It uses a fixed central-body point-mass parameter and two-body analytical equations. Hohmann estimates assume circular, coplanar orbits and impulsive burns. These calculators do not use ephemerides, propagate trajectories, model perturbations, solve launch windows, include plane changes or finite burns, or produce a mission delta-v budget. Results are UNVALIDATED and are not flight-performance or operational-safety predictions.

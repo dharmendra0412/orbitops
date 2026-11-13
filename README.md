@@ -36,7 +36,7 @@ The engineering-grade foundation, mission workspaces, spacecraft configuration, 
 - Append-only associations linking registered dataset manifests and model assessment records to mission projects.
 - Component mass, user-entered mass margin, and average power generation/load bookkeeping with explicit duty cycles.
 - Engineering-value contracts with unit dimension and provenance metadata.
-- Versioned ideal rocket-equation model and constant-average-power energy-balance model; both remain unvalidated.
+- Versioned ideal rocket-equation, constant-average-power energy-balance, and two-body Keplerian orbital mechanics models; all remain unvalidated.
 - Append-only SQLite model-run registry preserving inputs, outputs, equation/model versions, assumptions and limitations.
 - Dataset manifest validation, immutable metadata registry and bounded SHA-256 upload inspection (100 MiB maximum); uploaded bytes are not persisted.
 
@@ -104,6 +104,11 @@ Requirement allocations are append-only and must reference a requirement in the 
 - `GET /api/v1/datasets/manifests/{manifest_id}` — retrieve a registered manifest.
 - `POST /api/v1/models/propulsion/ideal-delta-v` — calculate ideal delta-v from traceable inputs; output remains unvalidated.
 - `POST /api/v1/models/power/simple-energy-balance` — compare average supply/load power over a fixed interval; output remains unvalidated.
+- `POST /api/v1/models/orbital-mechanics/circular-orbit` — calculate two-body circular orbital speed.
+- `POST /api/v1/models/orbital-mechanics/vis-viva` — calculate elliptical-orbit speed from radius and semi-major axis.
+- `POST /api/v1/models/orbital-mechanics/orbital-period` — calculate Keplerian orbital period.
+- `POST /api/v1/models/orbital-mechanics/escape-velocity` — calculate local two-body escape velocity.
+- `POST /api/v1/models/orbital-mechanics/hohmann-transfer` — estimate ideal two-burn transfer delta-v and transfer time between circular coplanar orbits.
 - `GET /api/v1/models/runs` and `GET /api/v1/models/runs/{run_id}` — list and retrieve persisted model-run snapshots.
 - `GET /api/v1/models/governance/catalog` — list registered model versions and derived credibility states.
 - `POST /api/v1/models/governance/assessments` — append verification or validation evidence for a registered model version.
