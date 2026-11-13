@@ -101,6 +101,7 @@ def _run_time_worker(
             input_utc=input_utc,
             input_et_seconds=input_et_seconds,
             conversion_direction=mode,
+            conversion_scope=f"{mode}_using_single_registered_lsk",
             et_seconds=float(result["et_seconds"]),
             normalized_utc=str(result["normalized_utc"]),
             converted_at=datetime.now(UTC),
