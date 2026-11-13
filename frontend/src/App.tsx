@@ -775,6 +775,28 @@ export default function App() {
     }
   }
 
+  function prefillManifestFromPDS4() {
+    if (!pds4Result) return;
+    const identification = pds4Result.identification_area;
+    const readSectionValue = (sectionName: string, keys: string[]) => {
+      const section = pds4Result.observation_area[sectionName];
+      if (typeof section !== "object" || section === null || Array.isArray(section)) return "";
+      for (const key of keys) {
+        const value = (section as Record<string, unknown>)[key];
+        if (typeof value === "string" && value.trim()) return value.trim();
+      }
+      return "";
+    };
+    if (identification.title) setManifestTitle(identification.title);
+    if (identification.logical_identifier) setManifestProductId(identification.logical_identifier);
+    if (identification.version_id) setManifestRelease(identification.version_id);
+    const targetName = readSectionValue("Target_Identification", ["name", "target_name"]);
+    const investigationName = readSectionValue("Investigation_Area", ["name", "investigation_name"]);
+    if (targetName || investigationName) setManifestAsset(targetName || investigationName);
+    setManifestError("");
+    setManifestState("idle");
+  }
+
   async function inspectPDS4Label() {
     if (!pds4File) return;
     if (!/\.(xml|lbl)$/i.test(pds4File.name)) {
@@ -1238,6 +1260,10 @@ export default function App() {
             {Object.keys(pds4Result.observation_area).length === 0 ? <p>No selected observation metadata was found.</p> : <pre>{JSON.stringify(pds4Result.observation_area, null, 2)}</pre>}
             <strong>File areas and arrays</strong>
             {pds4Result.file_areas.length === 0 ? <p>No observational file areas were found.</p> : <pre>{JSON.stringify(pds4Result.file_areas, null, 2)}</pre>}
+            <button className="planet-chip" type="button" onClick={prefillManifestFromPDS4}>
+              <FileCheck2 size={15} /> Prefill manifest details from label
+            </button>
+            <p className="inline-warning">Only descriptive fields are copied. Verify them against the archive; provider, source URL, citation, licence, and the science-file checksum must still be supplied separately.</p>
             <strong>Inspection limitations</strong>
             <ul>{pds4Result.limitations.map((item) => <li key={item}>{item}</li>)}</ul>
           </div>
