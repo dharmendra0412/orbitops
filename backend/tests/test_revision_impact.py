@@ -2,14 +2,14 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.missions.projects import MissionProjectDraft
+from app.missions.revision_impact_routes import get_revision_impact_store
 from app.missions.spacecraft import SpacecraftConfigurationDraft
+from app.missions.traceability import RequirementAllocationCreate
+from app.missions.traceability_routes import get_requirement_traceability_store
 from app.storage.mission_projects import MissionProjectStore
 from app.storage.requirement_traceability import RequirementTraceabilityStore
 from app.storage.revision_impact import RevisionImpactStore
 from app.storage.spacecraft_configurations import SpacecraftConfigurationStore
-from app.missions.revision_impact_routes import get_revision_impact_store
-from app.missions.traceability_routes import get_requirement_traceability_store
-from app.missions.traceability import RequirementAllocationCreate
 
 client = TestClient(app)
 
