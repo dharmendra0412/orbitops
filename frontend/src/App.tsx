@@ -23,6 +23,7 @@ type TraceabilityRow = { requirement_id: string; requirement_title: string; requ
 type TraceabilityMatrix = { mission_revision: number; spacecraft_configuration_revision: number | null; requirement_count: number; allocated_requirement_count: number; unallocated_requirement_count: number; rows: TraceabilityRow[]; limitations: string[] };
 type ModelGovernanceModel = { model_id: string; display_name: string; model_version: string; equation_ids: string[]; intended_scope: string; current_state: "unvalidated" | "verified" | "validated" | "review_required"; latest_verification_outcome: "pass" | "fail" | "inconclusive" | null; latest_validation_outcome: "pass" | "fail" | "inconclusive" | null; assessment_count: number };
 type ModelGovernanceCatalog = { models: ModelGovernanceModel[]; limitations: string[] };
+type HohmannResult = { transfer_delta_v: EngineeringOutput; first_burn_delta_v: EngineeringOutput; second_burn_delta_v: EngineeringOutput; transfer_time: EngineeringOutput; transfer_semi_major_axis: EngineeringOutput; limitations: string[]; run_id?: string };
 type RevisionChange = { requirement_id?: string; component_id?: string; change_type: "added" | "removed" | "modified"; baseline_title?: string | null; target_title?: string | null; baseline_name?: string | null; target_name?: string | null; changed_fields: string[] };
 type RevisionImpactReport = { baseline_mission_revision: number; target_mission_revision: number; baseline_spacecraft_revision: number; target_spacecraft_revision: number; requirement_changes: RevisionChange[]; component_changes: RevisionChange[]; impacted_allocations: { allocation_id: string; requirement_id: string; component_id: string; impact_reasons: string[] }[]; added_requirement_count: number; removed_requirement_count: number; modified_requirement_count: number; added_component_count: number; removed_component_count: number; modified_component_count: number; limitations: string[] };
 type MissionCatalog = {
@@ -190,6 +191,12 @@ export default function App() {
   const [assessmentReference, setAssessmentReference] = useState("");
   const [assessmentState, setAssessmentState] = useState<ModelState>("idle");
   const [assessmentError, setAssessmentError] = useState("");
+  const [orbitalMu, setOrbitalMu] = useState("3.986004418e14");
+  const [initialOrbitRadius, setInitialOrbitRadius] = useState("7000000");
+  const [targetOrbitRadius, setTargetOrbitRadius] = useState("14000000");
+  const [orbitalResult, setOrbitalResult] = useState<HohmannResult | null>(null);
+  const [orbitalState, setOrbitalState] = useState<ModelState>("idle");
+  const [orbitalError, setOrbitalError] = useState("");
   const [baselineMissionRevision, setBaselineMissionRevision] = useState("1");
   const [targetMissionRevision, setTargetMissionRevision] = useState("1");
   const [baselineSpacecraftRevision, setBaselineSpacecraftRevision] = useState("1");
@@ -388,6 +395,40 @@ export default function App() {
     } catch (error) {
       setManifestError(error instanceof Error ? error.message : "Unexpected dataset manifest error");
       setManifestState("error");
+    }
+  }
+
+
+  async function calculateHohmannTransfer() {
+    const mu = Number(orbitalMu);
+    const initialRadius = Number(initialOrbitRadius);
+    const targetRadius = Number(targetOrbitRadius);
+    if (![mu, initialRadius, targetRadius].every((value) => Number.isFinite(value) && value > 0) || initialRadius === targetRadius) {
+      setOrbitalError("Enter positive values for gravitational parameter and both radii; the two orbit radii must differ.");
+      setOrbitalState("error");
+      return;
+    }
+    setOrbitalState("calculating");
+    setOrbitalError("");
+    setOrbitalResult(null);
+    try {
+      const response = await fetch(apiBase + "/api/v1/models/orbital-mechanics/hohmann-transfer", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gravitational_parameter: engineeringInput("ui.orbital.mu", "Central-body gravitational parameter", mu, "m^3/s^2", "gravitational_parameter"),
+          initial_orbit_radius: engineeringInput("ui.orbital.initial-radius", "Initial circular orbit radius", initialRadius, "m", "length"),
+          target_orbit_radius: engineeringInput("ui.orbital.target-radius", "Target circular orbit radius", targetRadius, "m", "length"),
+          intended_use: "Preliminary ideal coplanar circular-orbit Hohmann transfer exploration only.",
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(typeof payload.detail === "string" ? payload.detail : "Orbital mechanics calculation failed");
+      setOrbitalResult(payload as HohmannResult);
+      setOrbitalState("success");
+      void refreshRecentRuns();
+    } catch (error) {
+      setOrbitalError(error instanceof Error ? error.message : "Unexpected orbital mechanics error");
+      setOrbitalState("error");
     }
   }
 
@@ -1269,6 +1310,32 @@ export default function App() {
         )}
       </section>
 
+
+
+      <section className="model-panel orbital-mechanics-panel">
+        <div className="ingestion-heading"><span className="card-icon"><Orbit size={20} /></span><div><div className="eyebrow">ORBITAL MECHANICS · TWO-BODY KEPLERIAN</div><h2>Hohmann transfer estimator</h2></div></div>
+        <p className="ingestion-copy">Estimate the ideal two-burn transfer between circular, coplanar orbits around the same central body. Enter its gravitational parameter and both orbital radii in SI units.</p>
+        <div className="model-form">
+          <label className="model-field">Gravitational parameter <span>m³/s²</span><input type="number" min="0" step="any" value={orbitalMu} onChange={(e) => setOrbitalMu(e.target.value)} /></label>
+          <label className="model-field">Initial orbit radius <span>m</span><input type="number" min="0" step="any" value={initialOrbitRadius} onChange={(e) => setInitialOrbitRadius(e.target.value)} /></label>
+          <label className="model-field">Target orbit radius <span>m</span><input type="number" min="0" step="any" value={targetOrbitRadius} onChange={(e) => setTargetOrbitRadius(e.target.value)} /></label>
+        </div>
+        <button className="inspect-button model-button" type="button" onClick={calculateHohmannTransfer} disabled={orbitalState === "calculating"}>
+          {orbitalState === "calculating" ? <LoaderCircle size={16} className="spin" /> : <Orbit size={16} />}
+          {orbitalState === "calculating" ? "Calculating transfer..." : "Calculate ideal Hohmann transfer"}
+        </button>
+        {orbitalError && <p className="inline-error">{orbitalError}</p>}
+        {orbitalResult && <div className="model-result">
+          <div className="result-heading"><CheckCircle2 size={17} /> Preliminary two-body transfer estimate</div>
+          <div className="model-metrics">
+            <div><dt>Total ideal Δv</dt><dd>{orbitalResult.transfer_delta_v.value.toFixed(2)} <small>m/s</small></dd></div>
+            <div><dt>Transfer time</dt><dd>{(orbitalResult.transfer_time.value / 3600).toFixed(2)} <small>h</small></dd></div>
+            <div><dt>Transfer semi-major axis</dt><dd>{(orbitalResult.transfer_semi_major_axis.value / 1000).toFixed(1)} <small>km</small></dd></div>
+          </div>
+          <div className="model-meta">Burn 1: {orbitalResult.first_burn_delta_v.value.toFixed(2)} m/s · Burn 2: {orbitalResult.second_burn_delta_v.value.toFixed(2)} m/s · Run {orbitalResult.run_id ?? "not recorded"}</div>
+          <div className="model-assumptions"><strong>Model limitations</strong><ul>{orbitalResult.limitations.map((item) => <li key={item}>{item}</li>)}</ul></div>
+        </div>}
+      </section>
 
       <section className="model-panel model-governance-panel">
         <div className="ingestion-heading"><span className="card-icon"><ShieldCheck size={20} /></span><div><div className="eyebrow">MODEL CREDIBILITY · VERIFICATION & VALIDATION</div><h2>Model governance register</h2></div></div>
