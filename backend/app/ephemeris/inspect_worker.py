@@ -36,6 +36,7 @@ def inspect_kernel(path: Path, expected_type: str) -> dict:
         "detected_architecture": architecture,
         "detected_kernel_type": detected_type,
         "object_ids": [],
+        "frame_class_ids": [],
         "coverage_intervals": [],
         "metadata_truncated": False,
         "inspection_scope": "format_header_and_supported_binary_index_metadata",
@@ -69,7 +70,7 @@ def inspect_kernel(path: Path, expected_type: str) -> dict:
     elif expected_type == "PCK" and architecture.upper() == "DAF":
         ids = spice.cell_int(SPICE_CELL_CAPACITY)
         spice.pckfrm(str(path), ids)
-        result["object_ids"] = [int(value) for value in ids[:MAX_OBJECT_IDS]]
+        result["frame_class_ids"] = [int(value) for value in ids[:MAX_OBJECT_IDS]]
         result["metadata_truncated"] = len(ids) > MAX_OBJECT_IDS
 
     elif expected_type == "DSK":
