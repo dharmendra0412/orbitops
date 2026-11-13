@@ -1025,3 +1025,20 @@ def test_spice_store_still_maps_duplicate_registry_records_to_conflict(tmp_path)
 
     with pytest.raises(SpiceKernelAlreadyExistsError):
         store.create(registration)
+
+
+
+def test_artifact_upload_reports_unsupported_secure_storage_runtime(tmp_path, monkeypatch):
+    store = configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes, "_supports_secure_artifact_storage", lambda: False)
+    try:
+        response = client.post(
+            "/api/v1/ephemeris/spice/kernels/missing/artifact",
+            files={"upload": ("kernel.bin", b"not-written", "application/octet-stream")},
+        )
+        assert response.status_code == 501
+        assert "requires a POSIX runtime" in response.json()["detail"]
+        assert not (tmp_path / "artifacts").exists()
+        assert store.get("missing") is None
+    finally:
+        clear_overrides()
