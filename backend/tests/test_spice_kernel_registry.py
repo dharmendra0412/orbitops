@@ -306,3 +306,56 @@ def test_spk_inspection_rejects_registered_type_mismatch(tmp_path, monkeypatch):
         assert client.get("/api/v1/ephemeris/spice/kernels/wrong-type/inspection").status_code == 404
     finally:
         clear_overrides()
+
+
+def test_text_kernel_inspection_checks_header_without_loading_kernel_pool(tmp_path, monkeypatch):
+    configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", tmp_path / "artifacts")
+    content = (
+        b"KPL/LSK\n"
+        b"\n\\begindata\n"
+        b"DELTET/DELTA_T_A = 32.184\n"
+        b"\\begintext\n"
+    )
+    registration = payload("test-lsk")
+    registration["file_name"] = "test.tls"
+    registration["kernel_type"] = "LSK"
+    registration["sha256"] = hashlib.sha256(content).hexdigest()
+    try:
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=registration).status_code == 201
+        assert client.post(
+            "/api/v1/ephemeris/spice/kernels/test-lsk/artifact",
+            files={"upload": ("test.tls", content, "text/plain")},
+        ).status_code == 201
+        inspected = client.post("/api/v1/ephemeris/spice/kernels/test-lsk/inspection")
+        assert inspected.status_code == 201, inspected.text
+        body = inspected.json()
+        assert body["detected_architecture"] == "KPL"
+        assert body["detected_kernel_type"] == "LSK"
+        assert body["object_ids"] == []
+        assert body["frame_class_ids"] == []
+    finally:
+        clear_overrides()
+
+
+def test_inspection_rejects_artifact_changed_after_acquisition(tmp_path, monkeypatch):
+    configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", tmp_path / "artifacts")
+    content = b"original uploaded bytes"
+    registration = payload("tampered-artifact")
+    registration["sha256"] = hashlib.sha256(content).hexdigest()
+    try:
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=registration).status_code == 201
+        uploaded = client.post(
+            "/api/v1/ephemeris/spice/kernels/tampered-artifact/artifact",
+            files={"upload": ("kernel.tls", content, "application/octet-stream")},
+        )
+        assert uploaded.status_code == 201
+        artifact_path = tmp_path / "artifacts" / uploaded.json()["storage_key"]
+        artifact_path.write_bytes(b"changed after acquisition")
+
+        inspected = client.post("/api/v1/ephemeris/spice/kernels/tampered-artifact/inspection")
+        assert inspected.status_code == 422
+        assert "no longer matches" in inspected.json()["detail"]
+    finally:
+        clear_overrides()
