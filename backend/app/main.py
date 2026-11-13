@@ -6,6 +6,7 @@ from app.engineering.routes import router as engineering_router
 from app.missions.project_routes import router as mission_projects_router
 from app.missions.routes import router as mission_catalog_router
 from app.missions.spacecraft_routes import router as spacecraft_router
+from app.missions.traceability_routes import router as traceability_router
 from app.missions.verification_routes import router as mission_verification_router
 from app.power.routes import router as power_router
 from app.propulsion.routes import router as propulsion_router
@@ -36,6 +37,7 @@ app.include_router(mission_catalog_router, prefix="/api/v1")
 app.include_router(mission_projects_router, prefix="/api/v1")
 app.include_router(mission_verification_router, prefix="/api/v1")
 app.include_router(spacecraft_router, prefix="/api/v1")
+app.include_router(traceability_router, prefix="/api/v1")
 app.include_router(propulsion_router, prefix="/api/v1")
 app.include_router(power_router, prefix="/api/v1")
 app.include_router(model_runs_router, prefix="/api/v1")
