@@ -13,6 +13,9 @@ type VerificationRecord = { verification_id: string; requirement_id: string; met
 type SpacecraftComponent = { component_id: string; name: string; subsystem: string; mass: EngineeringOutput; power_draw?: EngineeringOutput | null; power_generation?: EngineeringOutput | null; load_duty_cycle: number; generation_duty_cycle: number };
 type SpacecraftRecord = { latest_revision: number; revision: { draft: { components: SpacecraftComponent[] } } };
 type SpacecraftBudget = { mass: { component_mass_kg: number; margin_percent: number; margin_mass_kg: number; total_with_margin_kg: number }; power: { average_generation_w: number; average_load_w: number; net_power_w: number; assumptions: string[] } };
+type TraceabilityAllocation = { allocation_id: string; requirement_id: string; component_id: string; rationale: string; allocated_by: string; recorded_at: string };
+type TraceabilityRow = { requirement_id: string; requirement_title: string; requirement_statement: string; requirement_category: string; verification_method: string; allocated: boolean; allocation_count: number; allocations: TraceabilityAllocation[]; active_component_count: number; stale_component_ids: string[]; verification_record_count: number; pass_record_count: number; fail_record_count: number; inconclusive_record_count: number; verification_evidence_present: boolean };
+type TraceabilityMatrix = { mission_revision: number; spacecraft_configuration_revision: number | null; requirement_count: number; allocated_requirement_count: number; unallocated_requirement_count: number; rows: TraceabilityRow[]; limitations: string[] };
 type MissionCatalog = {
   scope: string;
   destinations: { planet_id: string; display_name: string; planetary_class: string; feasibility_status: string }[];
@@ -134,6 +137,12 @@ export default function App() {
   const [massMargin, setMassMargin] = useState("20");
   const [spacecraftState, setSpacecraftState] = useState<ModelState>("idle");
   const [spacecraftError, setSpacecraftError] = useState("");
+  const [traceabilityMatrix, setTraceabilityMatrix] = useState<TraceabilityMatrix | null>(null);
+  const [traceabilityRequirementId, setTraceabilityRequirementId] = useState("");
+  const [traceabilityComponentId, setTraceabilityComponentId] = useState("");
+  const [traceabilityRationale, setTraceabilityRationale] = useState("");
+  const [traceabilityState, setTraceabilityState] = useState<ModelState>("idle");
+  const [traceabilityError, setTraceabilityError] = useState("");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -209,16 +218,58 @@ export default function App() {
   }
 
 
+
+  async function refreshTraceability(projectId: string) {
+    try {
+      const response = await fetch(apiBase + "/api/v1/missions/projects/" + projectId + "/traceability/matrix");
+      if (!response.ok) throw new Error("Unable to load requirement traceability matrix");
+      const matrix = await response.json() as TraceabilityMatrix;
+      setTraceabilityMatrix(matrix);
+      const firstUnallocated = matrix.rows.find((row) => !row.allocated);
+      if (firstUnallocated) setTraceabilityRequirementId(firstUnallocated.requirement_id);
+      else if (matrix.rows[0]) setTraceabilityRequirementId(matrix.rows[0].requirement_id);
+      setTraceabilityComponentId((current) => current || spacecraftComponents[0]?.component_id || "");
+    } catch (error) {
+      setTraceabilityError(error instanceof Error ? error.message : "Unable to load traceability matrix");
+    }
+  }
+
+  async function createRequirementAllocation() {
+    if (!selectedProject || !traceabilityRequirementId || !traceabilityComponentId || traceabilityRationale.trim().length < 5) {
+      setTraceabilityError("Select a requirement and component, then enter an allocation rationale of at least 5 characters.");
+      setTraceabilityState("error");
+      return;
+    }
+    setTraceabilityState("calculating");
+    setTraceabilityError("");
+    try {
+      const response = await fetch(apiBase + "/api/v1/missions/projects/" + selectedProject.project_id + "/traceability/allocations", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requirement_id: traceabilityRequirementId, component_id: traceabilityComponentId,
+          rationale: traceabilityRationale.trim(), allocated_by: "Workspace user" }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to create allocation");
+      setTraceabilityRationale("");
+      setTraceabilityState("success");
+      await refreshTraceability(selectedProject.project_id);
+    } catch (error) {
+      setTraceabilityError(error instanceof Error ? error.message : "Unexpected traceability error");
+      setTraceabilityState("error");
+    }
+  }
+
   async function refreshSpacecraft(projectId: string) {
     try {
       const base = apiBase + "/api/v1/missions/projects/" + projectId + "/spacecraft";
       const response = await fetch(base + "/configuration");
       if (response.status === 404) {
-        setSpacecraftRecord(null); setSpacecraftBudget(null); setSpacecraftComponents([]); return;
+        setSpacecraftRecord(null); setSpacecraftBudget(null); setSpacecraftComponents([]); setTraceabilityComponentId(""); return;
       }
       if (!response.ok) throw new Error("Unable to load spacecraft configuration");
       const record = await response.json() as SpacecraftRecord;
       setSpacecraftRecord(record); setSpacecraftComponents(record.revision.draft.components);
+      setTraceabilityComponentId(record.revision.draft.components[0]?.component_id ?? "");
       const budgetResponse = await fetch(base + "/budgets");
       if (budgetResponse.ok) setSpacecraftBudget(await budgetResponse.json() as SpacecraftBudget);
     } catch (error) { setSpacecraftError(error instanceof Error ? error.message : "Unable to load spacecraft data"); }
@@ -276,9 +327,11 @@ export default function App() {
       const result = await response.json();
       if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to save configuration");
       setSpacecraftRecord(result as SpacecraftRecord);
+      setTraceabilityComponentId(spacecraftComponents[0]?.component_id ?? "");
       const budgetResponse = await fetch(base + "/budgets");
       if (budgetResponse.ok) setSpacecraftBudget(await budgetResponse.json() as SpacecraftBudget);
       setSpacecraftState("success");
+      await refreshTraceability(selectedProject.project_id);
     } catch (error) {
       setSpacecraftError(error instanceof Error ? error.message : "Unexpected spacecraft error"); setSpacecraftState("error");
     }
@@ -330,6 +383,7 @@ export default function App() {
       setSelectedProject(result as MissionProjectRecord);
       await refreshVerificationRecords(projectId);
       await refreshSpacecraft(projectId);
+      await refreshTraceability(projectId);
     } catch (error) {
       setProjectError(error instanceof Error ? error.message : "Unable to load mission project");
       setProjectState("error");
@@ -635,6 +689,42 @@ export default function App() {
         {spacecraftError && <p className="inline-error">{spacecraftError}</p>}
         {spacecraftRecord && <p className="inline-warning">Configuration revision {spacecraftRecord.latest_revision} · Preliminary values only.</p>}
         {spacecraftBudget && <div className="model-result"><div className="result-heading"><CheckCircle2 size={17} /> Preliminary budget summary</div><div className="model-metrics"><div><dt>Component mass</dt><dd>{spacecraftBudget.mass.component_mass_kg.toFixed(2)} <small>kg</small></dd></div><div><dt>Mass incl. margin</dt><dd>{spacecraftBudget.mass.total_with_margin_kg.toFixed(2)} <small>kg</small></dd></div><div><dt>Net average power</dt><dd>{spacecraftBudget.power.net_power_w.toFixed(2)} <small>W</small></dd></div></div><div className="model-meta">Average generation {spacecraftBudget.power.average_generation_w.toFixed(2)} W · Average load {spacecraftBudget.power.average_load_w.toFixed(2)} W</div><div className="model-assumptions"><strong>Limitations</strong><ul>{spacecraftBudget.power.assumptions.map((item) => <li key={item}>{item}</li>)}</ul></div></div>}
+      </section>}
+
+      {selectedProject && <section className="model-panel traceability-panel">
+        <div className="ingestion-heading"><span className="card-icon"><FileCheck2 size={20} /></span><div><div className="eyebrow">SYSTEMS ENGINEERING · REQUIREMENT TRACEABILITY</div><h2>Requirement-to-subsystem matrix</h2></div></div>
+        <p className="ingestion-copy">Allocate each mission requirement to one or more components in the latest spacecraft configuration. Allocations record engineering intent; they do not demonstrate compliance.</p>
+        {traceabilityMatrix && <div className="model-metrics">
+          <div><dt>Total requirements</dt><dd>{traceabilityMatrix.requirement_count}</dd></div>
+          <div><dt>Allocated</dt><dd>{traceabilityMatrix.allocated_requirement_count}</dd></div>
+          <div><dt>Unallocated</dt><dd>{traceabilityMatrix.unallocated_requirement_count}</dd></div>
+        </div>}
+        <div className="model-form">
+          <label className="model-field">Mission requirement<select value={traceabilityRequirementId} onChange={(e) => setTraceabilityRequirementId(e.target.value)}>
+            {selectedProject.revision.draft.requirements.map((item) => <option key={item.requirement_id} value={item.requirement_id}>{item.requirement_id} · {item.title}</option>)}
+          </select></label>
+          <label className="model-field">Spacecraft component<select value={traceabilityComponentId} onChange={(e) => setTraceabilityComponentId(e.target.value)}>
+            {spacecraftComponents.map((item) => <option key={item.component_id} value={item.component_id}>{item.component_id} · {item.name}</option>)}
+          </select></label>
+        </div>
+        <label className="model-field">Allocation rationale<textarea value={traceabilityRationale} onChange={(e) => setTraceabilityRationale(e.target.value)} placeholder="Explain why this component is assigned to the requirement." rows={2} /></label>
+        <button className="inspect-button model-button" type="button" onClick={createRequirementAllocation} disabled={traceabilityState === "calculating" || !spacecraftRecord || spacecraftComponents.length === 0 || selectedProject.revision.draft.requirements.length === 0}>
+          {traceabilityState === "calculating" ? <LoaderCircle size={16} className="spin" /> : <FileCheck2 size={16} />}
+          {traceabilityState === "calculating" ? "Saving allocation..." : "Allocate requirement"}
+        </button>
+        {traceabilityError && <p className="inline-error">{traceabilityError}</p>}
+        {traceabilityMatrix && <div className="run-list">
+          {traceabilityMatrix.rows.map((row) => <div className="run-row" key={row.requirement_id}>
+            <div className="run-row-main">
+              <strong>{row.requirement_id} · {row.requirement_title}</strong>
+              <span>{row.allocated ? row.allocation_count + " allocation(s) · " + row.active_component_count + " active component(s)" : "Unallocated requirement"}</span>
+              {row.allocations.map((allocation) => <small key={allocation.allocation_id}>{allocation.component_id} — {allocation.rationale}</small>)}
+              {row.stale_component_ids.length > 0 && <small className="inline-warning">Stale component references: {row.stale_component_ids.join(", ")}</small>}
+              <small>Verification evidence: {row.verification_record_count} record(s) · Pass {row.pass_record_count} · Fail {row.fail_record_count} · Inconclusive {row.inconclusive_record_count}</small>
+            </div>
+          </div>)}
+        </div>}
+        {traceabilityMatrix && <div className="model-assumptions"><strong>Interpretation limits</strong><ul>{traceabilityMatrix.limitations.map((item) => <li key={item}>{item}</li>)}</ul></div>}
       </section>}
 
       <section className="ingestion-panel">

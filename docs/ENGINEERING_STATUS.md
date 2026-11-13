@@ -1,9 +1,9 @@
 # ORBITOPS Engineering Status
 
 **Snapshot date:** 2026-11-13  
-**Branch:** feature/spacecraft-configuration  
+**Branch:** feature/requirement-subsystem-traceability  
 **Product scope:** Multi-planetary mission engineering foundation  
-**Status:** Mission workspaces, verification evidence capture, and initial spacecraft configuration/budget services implemented; engineering acceptance remains pending.
+**Status:** Mission workspaces, verification evidence capture, and spacecraft configuration/budget services, and initial requirement-to-component traceability implemented; engineering acceptance remains pending.
 
 ## Implemented
 
@@ -22,6 +22,8 @@
 - Append-only requirement verification evidence registry linked to requirements in the latest project revision, with verification-method consistency checks.
 - Spacecraft component contracts with subsystem classification and provenance-aware mass/power values.
 - Append-only spacecraft configuration revisions associated with a mission project.
+- Append-only requirement-to-component allocations validated against the latest mission and spacecraft revisions.
+- Latest-revision traceability matrix with unallocated requirement counts, stale component references, and verification evidence outcome counts.
 - Transparent component mass totals, user-declared percentage mass margin, and average power generation/load totals using explicit duty-cycle inputs.
 - Backend tests covering configuration persistence, revision history, dimensional rejection, duplicate component identifiers and budget arithmetic.
 - Frontend controls for mission projects, verification evidence, dataset checksum inspection, propulsion delta-v, power balance and recent model-run retrieval.
@@ -48,7 +50,7 @@ Spacecraft component values inherit their own provenance and credibility fields,
 
 ## Not implemented
 
-- Requirement-to-component traceability links and formal verification closure.
+- Historical traceability matrix comparison across mission/configuration revisions and formal verification closure.
 - Mission lifecycle state transitions, controlled approvals and independent verification/validation acceptance.
 - NASA/PDS product download, label parsing, decoding, coordinate/time transformations.
 - Curated body-specific ephemerides, gravity, atmosphere, radiation, terrain and thermal datasets.
@@ -78,3 +80,10 @@ The application is not flight-qualified, not a certified design tool, and not
 approved for operational mission decisions. A model may only be promoted beyond
 UNVALIDATED when its verification, validation, uncertainty, applicability and
 acceptance evidence are reviewed and recorded.
+
+## Requirement-to-subsystem traceability API
+
+- POST /api/v1/missions/projects/{project_id}/traceability/allocations — append an allocation after checking that the requirement exists in the latest mission revision and the component exists in the latest spacecraft configuration.
+- GET /api/v1/missions/projects/{project_id}/traceability/matrix — return all requirements in the latest mission revision, their component allocations, unallocated counts, stale component references, and verification evidence outcome counts.
+
+Allocations are append-only. A component removed from a later spacecraft configuration is flagged as stale rather than silently deleted from the traceability record. The matrix counts evidence records but does not interpret a pass as requirement compliance, independent acceptance, or formal verification closure. It currently compares only the latest mission and spacecraft revisions; historical revision comparison is not implemented.
