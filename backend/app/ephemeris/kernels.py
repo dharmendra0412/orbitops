@@ -1,4 +1,4 @@
-"""Metadata contracts for traceable SPICE kernel registration.
+"""Metadata contracts for traceable SPICE kernel artifact registration.
 
 Registration stores user-declared metadata only. It does not download, hash,
 parse, furnish, or scientifically validate a kernel.
