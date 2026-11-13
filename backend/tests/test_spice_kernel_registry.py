@@ -353,6 +353,7 @@ def test_inspection_rejects_artifact_changed_after_acquisition(tmp_path, monkeyp
         )
         assert uploaded.status_code == 201
         artifact_path = tmp_path / "artifacts" / uploaded.json()["storage_key"]
+        artifact_path.chmod(0o600)
         artifact_path.write_bytes(b"changed after acquisition")
 
         inspected = client.post("/api/v1/ephemeris/spice/kernels/tampered-artifact/inspection")
@@ -505,6 +506,7 @@ def test_utc_to_et_rejects_lsk_artifact_tampering_after_inspection(tmp_path, mon
         assert uploaded.status_code == 201
         assert client.post("/api/v1/ephemeris/spice/kernels/tampered-lsk/inspection").status_code == 201
         artifact_path = tmp_path / "artifacts" / uploaded.json()["storage_key"]
+        artifact_path.chmod(0o600)
         artifact_path.write_bytes(b"tampered LSK")
 
         converted = client.post(
@@ -701,7 +703,9 @@ def test_frame_transform_rejects_fk_artifact_tampering(tmp_path, monkeypatch):
         assert client.post(
             "/api/v1/ephemeris/spice/kernels/tampered-frame-fk/inspection"
         ).status_code == 201
-        (tmp_path / "artifacts" / uploaded.json()["storage_key"]).write_bytes(b"tampered FK")
+        artifact_path = tmp_path / "artifacts" / uploaded.json()["storage_key"]
+        artifact_path.chmod(0o600)
+        artifact_path.write_bytes(b"tampered FK")
 
         response = client.post(
             "/api/v1/ephemeris/spice/kernels/tampered-frame-fk/frame-transformations",
