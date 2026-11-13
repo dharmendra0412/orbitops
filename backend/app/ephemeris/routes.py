@@ -53,6 +53,18 @@ def _supports_secure_artifact_storage() -> bool:
     )
 
 
+def _require_secure_artifact_storage() -> None:
+    """Reject artifact operations when the runtime cannot preserve storage guarantees."""
+    if not _supports_secure_artifact_storage():
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail=(
+                "Secure SPICE artifact operations currently require a POSIX runtime "
+                "with descriptor-relative filesystem and no-follow support"
+            ),
+        )
+
+
 def _open_or_create_storage_directory(parent_fd: int, name: str) -> int:
     """Open a child directory relative to a trusted descriptor without following links."""
     try:
@@ -192,14 +204,7 @@ async def upload_spice_kernel_artifact(
     The server never dereferences the registered source URL. Uploaded bytes are
     stored by their computed digest after the digest matches the user declaration.
     """
-    if not _supports_secure_artifact_storage():
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail=(
-                "Secure SPICE artifact acquisition currently requires a POSIX runtime "
-                "with descriptor-relative filesystem operations"
-            ),
-        )
+    _require_secure_artifact_storage()
 
     registration_record = store.get(kernel_id)
     if registration_record is None:
@@ -325,6 +330,8 @@ def inspect_spice_kernel_artifact(
     store: Annotated[SpiceKernelStore, Depends(get_spice_kernel_store)],
 ) -> SpiceKernelInspectionRecord:
     """Inspect an acquired kernel's declared format and supported index metadata."""
+
+    _require_secure_artifact_storage()
     registration = store.get(kernel_id)
     if registration is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SPICE kernel not found")
@@ -380,6 +387,8 @@ def convert_spice_utc_to_et(
     store: Annotated[SpiceKernelStore, Depends(get_spice_kernel_store)],
 ) -> SpiceTimeConversionRecord:
     """Convert an explicitly UTC-tagged instant using one acquired and inspected LSK."""
+
+    _require_secure_artifact_storage()
     registration = store.get(kernel_id)
     if registration is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SPICE kernel not found")
@@ -461,6 +470,8 @@ def convert_spice_et_to_utc(
     store: Annotated[SpiceKernelStore, Depends(get_spice_kernel_store)],
 ) -> SpiceTimeConversionRecord:
     """Convert finite ET seconds past J2000 TDB using one acquired and inspected LSK."""
+
+    _require_secure_artifact_storage()
     registration = store.get(kernel_id)
     if registration is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SPICE kernel not found")
@@ -509,6 +520,8 @@ def create_spice_frame_transformation(
     store: Annotated[SpiceKernelStore, Depends(get_spice_kernel_store)],
 ) -> SpiceFrameTransformRecord:
     """Transform positions/states using one acquired, inspected fixed-frame FK."""
+
+    _require_secure_artifact_storage()
     registration = store.get(kernel_id)
     if registration is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SPICE kernel not found")
