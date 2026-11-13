@@ -2,6 +2,8 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.missions.project_routes import get_mission_project_store
+from app.missions.projects import MissionProjectDraft
+from app.missions.spacecraft import SpacecraftConfigurationDraft
 from app.missions.spacecraft_routes import get_spacecraft_configuration_store
 from app.storage.mission_projects import MissionProjectStore
 from app.storage.spacecraft_configurations import SpacecraftConfigurationStore
@@ -31,7 +33,7 @@ def engineering_value(value_id: str, name: str, value: float, unit: str, dimensi
         "provenance": "illustrative",
         "assumption_note": "Test fixture value only; not a hardware specification.",
         "intended_use": "Exercise spacecraft budget arithmetic in automated tests.",
-        "credibility": "illustrative",
+        "credibility": "unvalidated",
         "limitations": ["Not sourced or validated."],
     }
 
@@ -72,7 +74,7 @@ def test_configuration_and_budgets_are_saved_and_calculated(tmp_path) -> None:
     app.dependency_overrides[get_mission_project_store] = lambda: projects
     app.dependency_overrides[get_spacecraft_configuration_store] = lambda: spacecraft
     try:
-        project = projects.create(__import__("app.missions.projects", fromlist=["MissionProjectDraft"]).MissionProjectDraft.model_validate(project_payload()))
+        project = projects.create(MissionProjectDraft.model_validate(project_payload()))
         created = client.post(
             f"/api/v1/missions/projects/{project.project_id}/spacecraft/configuration",
             json=spacecraft_payload(),
@@ -97,11 +99,11 @@ def test_configuration_revision_is_append_only(tmp_path) -> None:
     database = tmp_path / "spacecraft.sqlite3"
     projects = MissionProjectStore(database)
     store = SpacecraftConfigurationStore(database)
-    project = projects.create(__import__("app.missions.projects", fromlist=["MissionProjectDraft"]).MissionProjectDraft.model_validate(project_payload()))
-    store.create(project.project_id, __import__("app.missions.spacecraft", fromlist=["SpacecraftConfigurationDraft"]).SpacecraftConfigurationDraft.model_validate(spacecraft_payload()))
+    project = projects.create(MissionProjectDraft.model_validate(project_payload()))
+    store.create(project.project_id, SpacecraftConfigurationDraft.model_validate(spacecraft_payload()))
     revised = store.create_revision(
         project.project_id,
-        __import__("app.missions.spacecraft", fromlist=["SpacecraftConfigurationDraft"]).SpacecraftConfigurationDraft.model_validate(spacecraft_payload(15.0)),
+        SpacecraftConfigurationDraft.model_validate(spacecraft_payload(15.0)),
     )
     assert revised.latest_revision == 2
     with store._connection() as connection:
@@ -113,7 +115,9 @@ def test_configuration_revision_is_append_only(tmp_path) -> None:
 
 def test_component_rejects_mass_with_wrong_dimension() -> None:
     payload = spacecraft_payload()
-    payload["components"][0]["mass"] = engineering_value("bad-mass", "Bad mass", 12.0, "W", "power")
+    payload["components"][0]["mass"] = engineering_value(
+        "bad-mass", "Bad mass", 12.0, "W", "power"
+    )
     response = client.post(
         "/api/v1/missions/projects/00000000-0000-0000-0000-000000000000/spacecraft/configuration",
         json=payload,
