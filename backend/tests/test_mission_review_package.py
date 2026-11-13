@@ -165,7 +165,7 @@ def test_review_package_compiles_allocations_budgets_and_evidence(tmp_path) -> N
 
 
 def test_failed_evidence_requires_review(tmp_path) -> None:
-    project, _, verification, traceability, spacecraft = configured_stores(tmp_path)
+    project, _, verification, traceability, spacecraft, _ = configured_stores(tmp_path)
     spacecraft.create(project.project_id, SpacecraftConfigurationDraft.model_validate(spacecraft_payload()))
     traceability.create(
         project.project_id,
