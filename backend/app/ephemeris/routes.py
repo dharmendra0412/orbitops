@@ -110,9 +110,14 @@ def _publish_content_addressed_artifact(
         ) from error
     finally:
         try:
-            fcntl.flock(artifact_directory_fd, fcntl.LOCK_UN)
-        except (OSError, UnboundLocalError):
+            os.unlink(temporary_name, dir_fd=staging_fd)
+        except FileNotFoundError:
             pass
+        finally:
+            try:
+                fcntl.flock(artifact_directory_fd, fcntl.LOCK_UN)
+            except OSError:
+                pass
 
 
 @lru_cache(maxsize=1)
