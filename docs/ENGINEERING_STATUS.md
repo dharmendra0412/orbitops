@@ -38,6 +38,7 @@
 - Fixed synthetic numerical regression cases for ideal rocket-equation delta-v and constant-average-power energy balance.
 - Append-only SPICE kernel metadata registry with typed kernel families, source/release metadata, user-declared SHA-256, optional timezone-aware coverage, time-system, frame, target and terms fields.
 - Bounded SPICE kernel artifact upload (1 GiB application limit), server-computed SHA-256 comparison, temporary staging cleanup, and content-addressed local storage; artifacts remain unparsed and unvalidated.
+- PR #14 artifact-acquisition CI run #369 passed backend lint, all 121 backend tests, frontend TypeScript typecheck, and frontend production build.
 
 ## Spacecraft configuration API
 
