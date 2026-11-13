@@ -4,6 +4,7 @@ import { Activity, Atom, CheckCircle2, Copy, Database, FileCheck2, Gauge, Layers
 type ApiStatus = "checking" | "online" | "offline";
 type UploadState = "idle" | "uploading" | "success" | "error";
 type UploadResult = { file_name: string; media_type: string; file_size_bytes: number; checksum_sha256: string; storage_status: string };
+type DatasetManifestSummary = { manifest_id: string; title: string; provider: string; product_id: string; release_or_version: string; file_name: string; checksum_sha256: string; retrieved_at: string };
 type ModelState = "idle" | "calculating" | "success" | "error";
 type MissionRequirement = { requirement_id: string; title: string; statement: string; category: string; verification_method: string; acceptance_criteria: string; source_reference?: string };
 type MissionProjectDraft = { name: string; summary: string; target_body: string; mission_archetype: string; primary_objective: string; intended_users: string[]; requirements: MissionRequirement[] };
@@ -95,6 +96,21 @@ export default function App() {
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   const [uploadError, setUploadError] = useState("");
+  const [datasetManifests, setDatasetManifests] = useState<DatasetManifestSummary[]>([]);
+  const [manifestTitle, setManifestTitle] = useState("");
+  const [manifestProvider, setManifestProvider] = useState("NASA");
+  const [manifestProductId, setManifestProductId] = useState("");
+  const [manifestRelease, setManifestRelease] = useState("");
+  const [manifestSourceUrl, setManifestSourceUrl] = useState("");
+  const [manifestCitation, setManifestCitation] = useState("");
+  const [manifestLicense, setManifestLicense] = useState("See source provider terms");
+  const [manifestDataFormat, setManifestDataFormat] = useState("");
+  const [manifestAccess, setManifestAccess] = useState("public");
+  const [manifestAsset, setManifestAsset] = useState("");
+  const [manifestCoordinateFrame, setManifestCoordinateFrame] = useState("");
+  const [manifestTimeSystem, setManifestTimeSystem] = useState("");
+  const [manifestState, setManifestState] = useState<ModelState>("idle");
+  const [manifestError, setManifestError] = useState("");
   const [dryMass, setDryMass] = useState("");
   const [propellantMass, setPropellantMass] = useState("");
   const [specificImpulse, setSpecificImpulse] = useState("");
@@ -182,6 +198,7 @@ export default function App() {
       void refreshRecentRuns();
       void refreshMissionProjects();
       void refreshModelGovernance();
+      void refreshDatasetManifests();
       fetch(apiBase + "/api/v1/missions/catalog")
         .then((response) => {
           if (!response.ok) throw new Error("Mission catalogue unavailable");
@@ -196,6 +213,66 @@ export default function App() {
     }
   }, [apiStatus]);
 
+
+
+  async function refreshDatasetManifests() {
+    try {
+      const response = await fetch(apiBase + "/api/v1/datasets/manifests?limit=20");
+      if (!response.ok) throw new Error("Unable to load dataset manifest registry");
+      setDatasetManifests(await response.json() as DatasetManifestSummary[]);
+    } catch (error) {
+      setManifestError(error instanceof Error ? error.message : "Unable to load dataset manifests");
+    }
+  }
+
+  async function registerInspectedDataset() {
+    if (!uploadResult) return;
+    if (manifestTitle.trim().length < 3 || manifestProvider.trim().length < 2 ||
+        manifestProductId.trim().length < 2 || manifestRelease.trim().length < 1 ||
+        !manifestSourceUrl.trim().startsWith("https://") ||
+        manifestCitation.trim().length < 5 || manifestLicense.trim().length < 3 ||
+        manifestDataFormat.trim().length < 2) {
+      setManifestError("Complete the title, provider, product ID, release, HTTPS source URL, citation, terms, and data format.");
+      setManifestState("error");
+      return;
+    }
+    setManifestState("calculating");
+    setManifestError("");
+    try {
+      const payload = {
+        manifest_id: "orbitops-" + crypto.randomUUID(),
+        title: manifestTitle.trim(),
+        provider: manifestProvider.trim(),
+        product_id: manifestProductId.trim(),
+        release_or_version: manifestRelease.trim(),
+        source_url: manifestSourceUrl.trim(),
+        citation_text: manifestCitation.trim(),
+        retrieved_at: new Date().toISOString(),
+        file_name: uploadResult.file_name,
+        media_type: uploadResult.media_type,
+        data_format: manifestDataFormat.trim(),
+        file_size_bytes: uploadResult.file_size_bytes,
+        checksum_sha256: uploadResult.checksum_sha256,
+        license_or_terms: manifestLicense.trim(),
+        access_classification: manifestAccess,
+        asset_stage: "source",
+        property_or_asset: manifestAsset.trim() || null,
+        coordinate_reference_frame: manifestCoordinateFrame.trim() || null,
+        time_system: manifestTimeSystem.trim() || null,
+        limitations: ["Checksum and metadata were recorded; file contents have not been decoded or scientifically assessed."],
+      };
+      const response = await fetch(apiBase + "/api/v1/datasets/manifests", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to register dataset manifest");
+      setManifestState("success");
+      await refreshDatasetManifests();
+    } catch (error) {
+      setManifestError(error instanceof Error ? error.message : "Unexpected dataset manifest error");
+      setManifestState("error");
+    }
+  }
 
   async function refreshModelGovernance() {
     try {
@@ -892,8 +969,38 @@ export default function App() {
             </dl>
             <div className="checksum-value"><span>{uploadResult.checksum_sha256}</span><button type="button" onClick={copyChecksum} aria-label="Copy SHA-256 checksum"><Copy size={15} /></button></div>
             {uploadError && <p className="inline-warning">{uploadError}</p>}
+            <div className="model-assumptions">
+              <strong>Register this file as a source dataset</strong>
+              <p>Registration stores the metadata and checksum, not the uploaded file bytes. Supply the authoritative product identity and source citation.</p>
+              <div className="model-form">
+                <label className="model-field">Dataset title<input value={manifestTitle} onChange={(e) => setManifestTitle(e.target.value)} placeholder="Product or dataset title" /></label>
+                <label className="model-field">Provider<input value={manifestProvider} onChange={(e) => setManifestProvider(e.target.value)} placeholder="NASA, ESA, instrument team..." /></label>
+                <label className="model-field">Product ID<input value={manifestProductId} onChange={(e) => setManifestProductId(e.target.value)} placeholder="Exact archive product ID" /></label>
+                <label className="model-field">Release / version<input value={manifestRelease} onChange={(e) => setManifestRelease(e.target.value)} placeholder="Archive release or version" /></label>
+                <label className="model-field">Source product URL<input type="url" value={manifestSourceUrl} onChange={(e) => setManifestSourceUrl(e.target.value)} placeholder="https://..." /></label>
+                <label className="model-field">Data format<input value={manifestDataFormat} onChange={(e) => setManifestDataFormat(e.target.value)} placeholder="PDS4, CSV, FITS, SPICE..." /></label>
+                <label className="model-field">Citation<input value={manifestCitation} onChange={(e) => setManifestCitation(e.target.value)} placeholder="How this product should be cited" /></label>
+                <label className="model-field">License / terms<input value={manifestLicense} onChange={(e) => setManifestLicense(e.target.value)} /></label>
+                <label className="model-field">Access classification<select value={manifestAccess} onChange={(e) => setManifestAccess(e.target.value)}><option value="public">Public</option><option value="registration_required">Registration required</option><option value="restricted">Restricted</option><option value="unknown">Unknown</option></select></label>
+                <label className="model-field">Planet / asset <span>optional</span><input value={manifestAsset} onChange={(e) => setManifestAsset(e.target.value)} placeholder="Mars, Europa, spacecraft..." /></label>
+                <label className="model-field">Coordinate frame <span>optional</span><input value={manifestCoordinateFrame} onChange={(e) => setManifestCoordinateFrame(e.target.value)} placeholder="Exact source frame, if known" /></label>
+                <label className="model-field">Time system <span>optional</span><input value={manifestTimeSystem} onChange={(e) => setManifestTimeSystem(e.target.value)} placeholder="UTC, TDB, SCLK..." /></label>
+              </div>
+              <button className="inspect-button model-button" type="button" onClick={registerInspectedDataset} disabled={manifestState === "calculating"}>
+                {manifestState === "calculating" ? <LoaderCircle size={16} className="spin" /> : <Database size={16} />}
+                {manifestState === "calculating" ? "Registering manifest..." : "Register dataset manifest"}
+              </button>
+              {manifestError && <p className="inline-error">{manifestError}</p>}
+              {manifestState === "success" && <p className="inline-warning">Dataset metadata registered. File bytes were not stored or scientifically assessed.</p>}
+            </div>
           </div>
         )}
+        <div className="run-history-panel">
+          <div className="result-heading"><Database size={17} /> Registered dataset manifests</div>
+          {datasetManifests.length === 0 ? <p className="run-empty">No dataset manifests have been registered yet.</p> : <div className="run-list">
+            {datasetManifests.map((item) => <div className="run-row" key={item.manifest_id}><div className="run-row-main"><strong>{item.title}</strong><span>{item.provider} · {item.product_id} · {item.release_or_version}</span><small>{item.file_name} · SHA-256 {item.checksum_sha256.slice(0, 16)}…</small></div></div>)}
+          </div>}
+        </div>
         <a className="api-docs-link" href={apiBase + "/docs"} target="_blank" rel="noreferrer">Open API documentation ↗</a>
       </section>
 

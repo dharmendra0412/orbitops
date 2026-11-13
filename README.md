@@ -31,6 +31,7 @@ The engineering-grade foundation, mission workspaces, spacecraft configuration, 
 - Requirement-to-component allocation records and a latest-revision traceability matrix, including unallocated requirements, stale component references, and verification evidence counts.
 - Model verification/validation evidence registry with derived credibility states for registered model versions.
 - Historical mission/spacecraft revision comparison with changed requirement/component detection and impacted-allocation reporting.
+- Frontend dataset workflow connecting file checksum inspection to source manifest registration and registered-manifest browsing.
 - Component mass, user-entered mass margin, and average power generation/load bookkeeping with explicit duty cycles.
 - Engineering-value contracts with unit dimension and provenance metadata.
 - Versioned ideal rocket-equation model and constant-average-power energy-balance model; both remain unvalidated.
