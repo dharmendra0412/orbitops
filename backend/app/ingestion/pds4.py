@@ -59,8 +59,12 @@ def inspect_pds4_label(xml_bytes: bytes, file_name: str) -> PDS4LabelInspection:
 
     try:
         root = ET.fromstring(xml_bytes)
-    except ET.ParseError as error:
-        raise HTTPException(status_code=422, detail=f"Malformed XML label: {error}") from error
+    except (ET.ParseError, RecursionError) as error:
+        raise HTTPException(status_code=422, detail=f"Malformed or excessively nested XML label: {error}") from error
+
+    root_name = local_name(root.tag)
+    if not root_name.startswith("Product_"):
+        raise HTTPException(status_code=422, detail="XML root element is not a PDS4 Product_* label")
 
     count = 0
     stack = [(root, 1)]
@@ -125,7 +129,6 @@ def inspect_pds4_label(xml_bytes: bytes, file_name: str) -> PDS4LabelInspection:
             arrays.append(info)
         file_areas.append({"file": file_info, "arrays": arrays})
 
-    root_name = local_name(root.tag)
     product_class = (
         root_name
         if root_name.startswith("Product_")
