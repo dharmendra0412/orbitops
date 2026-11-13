@@ -4,6 +4,7 @@ import spiceypy as spice
 from fastapi.testclient import TestClient
 
 import app.ephemeris.routes as spice_routes
+import app.ephemeris.time_conversion as spice_time_conversion
 from app.ephemeris.routes import get_spice_kernel_store
 from app.main import app
 from app.storage.spice_kernels import SpiceKernelStore
@@ -512,5 +513,35 @@ def test_utc_to_et_rejects_lsk_artifact_tampering_after_inspection(tmp_path, mon
         )
         assert converted.status_code == 422
         assert "no longer matches" in converted.json()["detail"]
+    finally:
+        clear_overrides()
+
+
+def test_time_conversion_rejects_oversized_lsk_before_worker(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    configure_store(tmp_path)
+    monkeypatch.setattr(spice_routes.settings, "spice_kernel_storage_path", tmp_path / "artifacts")
+    monkeypatch.setattr(spice_time_conversion, "MAX_LSK_CONVERSION_BYTES", 1)
+    fixture = Path(__file__).parent / "fixtures" / "naif0012_reference.tls"
+    content = fixture.read_bytes()
+    registration = payload("oversized-lsk")
+    registration["sha256"] = hashlib.sha256(content).hexdigest()
+    try:
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=registration).status_code == 201
+        assert client.post(
+            "/api/v1/ephemeris/spice/kernels/oversized-lsk/artifact",
+            files={"upload": ("naif0012_reference.tls", content, "text/plain")},
+        ).status_code == 201
+        assert client.post(
+            "/api/v1/ephemeris/spice/kernels/oversized-lsk/inspection"
+        ).status_code == 201
+
+        converted = client.post(
+            "/api/v1/ephemeris/spice/kernels/oversized-lsk/time-conversions",
+            json={"utc_time": "2000 JAN 01 11:58:55.816 UTC"},
+        )
+        assert converted.status_code == 422
+        assert "conversion limit" in converted.json()["detail"]
     finally:
         clear_overrides()
