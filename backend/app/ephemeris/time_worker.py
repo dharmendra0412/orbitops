@@ -1,6 +1,6 @@
 """Isolated UTC/ET conversion using exactly one acquired LSK kernel."""
 
-import hashlib
+import hashlib  # noqa: I001
 import json
 import math
 import sys
