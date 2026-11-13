@@ -31,8 +31,7 @@ def test_verified_snapshot_rejects_digest_mismatch(tmp_path):
     source = tmp_path / "kernel.tls"
     source.write_bytes(b"changed bytes")
 
-    with pytest.raises(ArtifactSnapshotError, match="no longer matches"):
-        with verified_artifact_snapshot(
+    with pytest.raises(ArtifactSnapshotError, match="no longer matches"), verified_artifact_snapshot(
             source,
             expected_sha256=hashlib.sha256(b"original bytes").hexdigest(),
             max_bytes=1024,
@@ -45,8 +44,7 @@ def test_verified_snapshot_enforces_size_limit(tmp_path):
     source = tmp_path / "kernel.tf"
     source.write_bytes(b"more than four bytes")
 
-    with pytest.raises(ArtifactSnapshotError, match="4 byte limit"):
-        with verified_artifact_snapshot(
+    with pytest.raises(ArtifactSnapshotError, match="4 byte limit"), verified_artifact_snapshot(
             source,
             expected_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
             max_bytes=4,
@@ -61,8 +59,7 @@ def test_verified_snapshot_rejects_final_symlink(tmp_path):
     link = tmp_path / "kernel.tls"
     link.symlink_to(source)
 
-    with pytest.raises(ArtifactSnapshotError):
-        with verified_artifact_snapshot(
+    with pytest.raises(ArtifactSnapshotError), verified_artifact_snapshot(
             link,
             expected_sha256=hashlib.sha256(b"kernel").hexdigest(),
             max_bytes=1024,
