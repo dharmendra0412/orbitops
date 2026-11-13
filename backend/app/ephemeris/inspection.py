@@ -1,5 +1,5 @@
 """Controlled invocation of the SPICE metadata inspection subprocess."""
-import json
+import json  # noqa: I001
 import os
 import subprocess
 import sys
