@@ -59,16 +59,19 @@ def inspect_artifact(
             snapshot_path = Path(temporary_dir) / "kernel-artifact"
             digest = hashlib.sha256()
             size_bytes = 0
-            with os.fdopen(source_fd, "rb") as source_file, snapshot_path.open("xb") as snapshot:
+            with os.fdopen(source_fd, "rb") as source_file:
                 source_fd = None
-                while chunk := source_file.read(HASH_CHUNK_BYTES):
-                    size_bytes += len(chunk)
-                    if size_bytes > MAX_INSPECTION_ARTIFACT_BYTES:
-                        raise SpiceInspectionError("Kernel artifact exceeds the inspection size limit")
-                    digest.update(chunk)
-                    snapshot.write(chunk)
-                snapshot.flush()
-                os.fsync(snapshot.fileno())
+                with snapshot_path.open("xb") as snapshot:
+                    while chunk := source_file.read(HASH_CHUNK_BYTES):
+                        size_bytes += len(chunk)
+                        if size_bytes > MAX_INSPECTION_ARTIFACT_BYTES:
+                            raise SpiceInspectionError(
+                                "Kernel artifact exceeds the inspection size limit"
+                            )
+                        digest.update(chunk)
+                        snapshot.write(chunk)
+                    snapshot.flush()
+                    os.fsync(snapshot.fileno())
 
             actual_sha256 = digest.hexdigest()
             if actual_sha256 != expected_sha256:
