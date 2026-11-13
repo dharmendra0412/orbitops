@@ -29,6 +29,7 @@ The engineering-grade foundation, mission workspaces, spacecraft configuration, 
 - Spacecraft component contracts with typed subsystem classification and provenance-aware mass and power values.
 - Append-only spacecraft configuration revisions linked to mission projects.
 - Requirement-to-component allocation records and a latest-revision traceability matrix, including unallocated requirements, stale component references, and verification evidence counts.
+- Model verification/validation evidence registry with derived credibility states for registered model versions.
 - Component mass, user-entered mass margin, and average power generation/load bookkeeping with explicit duty cycles.
 - Engineering-value contracts with unit dimension and provenance metadata.
 - Versioned ideal rocket-equation model and constant-average-power energy-balance model; both remain unvalidated.
@@ -96,6 +97,9 @@ Requirement allocations are append-only and must reference a requirement in the 
 - `POST /api/v1/models/propulsion/ideal-delta-v` — calculate ideal delta-v from traceable inputs; output remains unvalidated.
 - `POST /api/v1/models/power/simple-energy-balance` — compare average supply/load power over a fixed interval; output remains unvalidated.
 - `GET /api/v1/models/runs` and `GET /api/v1/models/runs/{run_id}` — list and retrieve persisted model-run snapshots.
+- `GET /api/v1/models/governance/catalog` — list registered model versions and derived credibility states.
+- `POST /api/v1/models/governance/assessments` — append verification or validation evidence for a registered model version.
+- `GET /api/v1/models/governance/assessments` — list model assessment records, optionally filtered by model ID/version.
 
 ## Engineering integrity rules
 
