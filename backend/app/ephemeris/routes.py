@@ -9,13 +9,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 
+from app.ephemeris.inspection import SpiceInspectionError, inspect_artifact
 from app.ephemeris.kernels import (
     SpiceKernelArtifactRecord,
     SpiceKernelInspectionRecord,
     SpiceKernelRecord,
     SpiceKernelRegistration,
 )
-from app.ephemeris.inspection import SpiceInspectionError, inspect_artifact
 from app.settings import settings
 from app.storage.spice_kernels import SpiceKernelAlreadyExistsError, SpiceKernelStore
 
