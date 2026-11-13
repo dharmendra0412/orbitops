@@ -1,5 +1,4 @@
 """Append-only persistence for requirement verification evidence."""
-import json
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
