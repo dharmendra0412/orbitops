@@ -5,6 +5,7 @@ type ApiStatus = "checking" | "online" | "offline";
 type UploadState = "idle" | "uploading" | "success" | "error";
 type UploadResult = { file_name: string; media_type: string; file_size_bytes: number; checksum_sha256: string; storage_status: string };
 type DatasetManifestSummary = { manifest_id: string; title: string; provider: string; product_id: string; release_or_version: string; file_name: string; checksum_sha256: string; retrieved_at: string };
+type MissionReviewPackage = { package_id: string; generated_at: string; review_state: "incomplete" | "review_required" | "evidence_compiled"; summary: { requirement_count: number; allocated_requirement_count: number; unallocated_requirement_count: number; requirements_without_evidence_count: number; verification_record_count: number; failed_verification_record_count: number; inconclusive_verification_record_count: number; stale_component_reference_count: number; spacecraft_component_count: number }; findings: { code: string; severity: "attention" | "information"; title: string; description: string }[]; limitations: string[] };
 type ModelState = "idle" | "calculating" | "success" | "error";
 type MissionRequirement = { requirement_id: string; title: string; statement: string; category: string; verification_method: string; acceptance_criteria: string; source_reference?: string };
 type MissionProjectDraft = { name: string; summary: string; target_body: string; mission_archetype: string; primary_objective: string; intended_users: string[]; requirements: MissionRequirement[] };
@@ -111,6 +112,9 @@ export default function App() {
   const [manifestTimeSystem, setManifestTimeSystem] = useState("");
   const [manifestState, setManifestState] = useState<ModelState>("idle");
   const [manifestError, setManifestError] = useState("");
+  const [reviewPackage, setReviewPackage] = useState<MissionReviewPackage | null>(null);
+  const [reviewPackageState, setReviewPackageState] = useState<ModelState>("idle");
+  const [reviewPackageError, setReviewPackageError] = useState("");
   const [dryMass, setDryMass] = useState("");
   const [propellantMass, setPropellantMass] = useState("");
   const [specificImpulse, setSpecificImpulse] = useState("");
@@ -214,6 +218,34 @@ export default function App() {
   }, [apiStatus]);
 
 
+
+
+  async function compileReviewPackage() {
+    if (!selectedProject) return;
+    setReviewPackageState("calculating");
+    setReviewPackageError("");
+    try {
+      const response = await fetch(apiBase + "/api/v1/missions/projects/" + selectedProject.project_id + "/review-package");
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to compile review package");
+      setReviewPackage(result as MissionReviewPackage);
+      setReviewPackageState("success");
+    } catch (error) {
+      setReviewPackageError(error instanceof Error ? error.message : "Unexpected review package error");
+      setReviewPackageState("error");
+    }
+  }
+
+  function downloadReviewPackage() {
+    if (!reviewPackage || !selectedProject) return;
+    const blob = new Blob([JSON.stringify(reviewPackage, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "orbitops-review-" + selectedProject.project_id + ".json";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
 
   async function refreshDatasetManifests() {
     try {
@@ -931,6 +963,28 @@ export default function App() {
             {revisionImpact.impacted_allocations.length ? <ul>{revisionImpact.impacted_allocations.map((item) => <li key={item.allocation_id}>{item.requirement_id} → {item.component_id}: {item.impact_reasons.join(", ")}</li>)}</ul> : <p>No current allocations were flagged by this comparison.</p>}
             <strong>Limitations</strong><ul>{revisionImpact.limitations.map((item) => <li key={item}>{item}</li>)}</ul>
           </div>
+        </div>}
+      </section>}
+
+
+      {selectedProject && <section className="model-panel review-package-panel">
+        <div className="ingestion-heading"><span className="card-icon"><FileCheck2 size={20} /></span><div><div className="eyebrow">ENGINEERING REVIEW · EVIDENCE CONSOLIDATION</div><h2>Mission review package</h2></div></div>
+        <p className="ingestion-copy">Compile the current mission revision, spacecraft configuration, budgets, traceability matrix, and requirement verification evidence into one reviewable package.</p>
+        <button className="inspect-button model-button" type="button" onClick={compileReviewPackage} disabled={reviewPackageState === "calculating"}>
+          {reviewPackageState === "calculating" ? <LoaderCircle size={16} className="spin" /> : <FileCheck2 size={16} />}
+          {reviewPackageState === "calculating" ? "Compiling package..." : "Compile engineering review package"}
+        </button>
+        {reviewPackageError && <p className="inline-error">{reviewPackageError}</p>}
+        {reviewPackage && <div className="model-result">
+          <div className="result-heading"><CheckCircle2 size={17} /> Review package compiled · {reviewPackage.review_state.replace(/_/g, " ")}</div>
+          <div className="model-metrics">
+            <div><dt>Requirements</dt><dd>{reviewPackage.summary.requirement_count}</dd></div>
+            <div><dt>Allocated</dt><dd>{reviewPackage.summary.allocated_requirement_count}</dd></div>
+            <div><dt>Evidence records</dt><dd>{reviewPackage.summary.verification_record_count}</dd></div>
+          </div>
+          <div className="model-meta">Generated {new Date(reviewPackage.generated_at).toLocaleString()} · Package {reviewPackage.package_id}</div>
+          <div className="model-assumptions"><strong>Review findings</strong><ul>{reviewPackage.findings.map((item) => <li key={item.code}><strong>{item.severity.toUpperCase()} · {item.title}:</strong> {item.description}</li>)}</ul><strong>Package limitations</strong><ul>{reviewPackage.limitations.map((item) => <li key={item}>{item}</li>)}</ul></div>
+          <button className="planet-chip" type="button" onClick={downloadReviewPackage}><Database size={15} /> Download JSON review package</button>
         </div>}
       </section>}
 
