@@ -88,7 +88,7 @@ def configured_stores(tmp_path):
     app.dependency_overrides[get_review_spacecraft_store] = lambda: spacecraft
     app.dependency_overrides[get_review_evidence_store] = lambda: evidence
     project = projects.create(MissionProjectDraft.model_validate(mission_payload()))
-    return project, projects, verification, traceability, spacecraft
+    return project, projects, verification, traceability, spacecraft, evidence
 
 
 def clear_overrides() -> None:
@@ -100,7 +100,7 @@ def clear_overrides() -> None:
 
 
 def test_review_package_reports_missing_configuration_and_evidence(tmp_path) -> None:
-    project, _, _, _, _ = configured_stores(tmp_path)
+    project, _, _, _, _, _ = configured_stores(tmp_path)
     try:
         response = client.get(f"/api/v1/missions/projects/{project.project_id}/review-package")
         assert response.status_code == 200
@@ -118,7 +118,7 @@ def test_review_package_reports_missing_configuration_and_evidence(tmp_path) -> 
 
 
 def test_review_package_compiles_allocations_budgets_and_evidence(tmp_path) -> None:
-    project, _, verification, traceability, spacecraft = configured_stores(tmp_path)
+    project, _, verification, traceability, spacecraft, _ = configured_stores(tmp_path)
     spacecraft.create(project.project_id, SpacecraftConfigurationDraft.model_validate(spacecraft_payload()))
     traceability.create(
         project.project_id,
