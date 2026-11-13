@@ -13,12 +13,16 @@ from app.missions.spacecraft import (
 )
 from app.settings import settings
 from app.storage.spacecraft_configurations import (
+    SpacecraftConfigurationExistsError,
     SpacecraftConfigurationNotFoundError,
     SpacecraftConfigurationStore,
     SpacecraftProjectNotFoundError,
 )
 
-router = APIRouter(prefix="/missions/projects/{project_id}/spacecraft", tags=["spacecraft-configuration"])
+router = APIRouter(
+    prefix="/missions/projects/{project_id}/spacecraft",
+    tags=["spacecraft-configuration"],
+)
 
 
 @lru_cache(maxsize=1)
@@ -41,10 +45,8 @@ def create_spacecraft_configuration(
         return store.create(project_id, payload)
     except SpacecraftProjectNotFoundError as error:
         raise HTTPException(status_code=404, detail="Mission project not found") from error
-    except Exception as error:
-        if "UNIQUE constraint failed" in str(error):
-            raise HTTPException(status_code=409, detail="Spacecraft configuration already exists") from error
-        raise
+    except SpacecraftConfigurationExistsError as error:
+        raise HTTPException(status_code=409, detail="Spacecraft configuration already exists") from error
 
 
 @router.get("/configuration", response_model=SpacecraftConfigurationRecord)
