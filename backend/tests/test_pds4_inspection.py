@@ -24,6 +24,39 @@ def test_namespaced_label_extracts_identification_and_array_metadata():
     assert "authoritative PDS4 schema" in body["limitations"][0]
 
 
+def test_empty_label_is_rejected():
+    response = client.post(
+        "/api/v1/datasets/pds4/inspect",
+        files={"file": ("empty.xml", b"", "application/xml")},
+    )
+    assert response.status_code == 422
+
+
+def test_xml_nesting_depth_limit_is_enforced():
+    depth = 129
+    payload = ("<Product_Test>" + "<Node>" * depth + "</Node>" * depth + "</Product_Test>").encode()
+    response = client.post(
+        "/api/v1/datasets/pds4/inspect",
+        files={"file": ("deep.xml", payload, "application/xml")},
+    )
+    assert response.status_code == 413
+    assert "nesting is too deep" in response.json()["detail"]
+
+
+def test_xml_element_count_limit_is_enforced():
+    payload = (
+        "<Product_Test>"
+        + "<Node/>" * 100_000
+        + "</Product_Test>"
+    ).encode()
+    response = client.post(
+        "/api/v1/datasets/pds4/inspect",
+        files={"file": ("many-elements.xml", payload, "application/xml")},
+    )
+    assert response.status_code == 413
+    assert "too many elements" in response.json()["detail"]
+
+
 def test_optional_sections_can_be_absent():
     result = inspect_pds4_label(b"<Product_Observational/>", "minimal.xml")
     assert result.identification_area == {}
