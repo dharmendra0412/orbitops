@@ -5,14 +5,13 @@ import math
 import sys
 from pathlib import Path
 
-import spiceypy as spice
 
 
 MAX_FK_BYTES = 10 * 1024 * 1024
 
 
 def apply_process_limits() -> None:
-    """Apply best-effort POSIX limits before invoking native CSPICE routines."""
+    """Apply POSIX resource limits before importing native CSPICE bindings."""
     try:
         import resource
     except ImportError:
@@ -20,7 +19,7 @@ def apply_process_limits() -> None:
 
     resource.setrlimit(resource.RLIMIT_CPU, (8, 8))
     resource.setrlimit(resource.RLIMIT_AS, (2 * 1024 * 1024 * 1024, 2 * 1024 * 1024 * 1024))
-    resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
+    resource.setrlimit(resource.RLIMIT_FSIZE, (4096, 4096))
     resource.setrlimit(resource.RLIMIT_NOFILE, (32, 32))
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
 
@@ -46,6 +45,8 @@ def _frame_class(name: str) -> int:
 
 def main() -> int:
     apply_process_limits()
+    import spiceypy as spice
+
     path = Path(sys.argv[1]).resolve(strict=True)
     expected_sha256 = sys.argv[2]
     from_frame = sys.argv[3]
