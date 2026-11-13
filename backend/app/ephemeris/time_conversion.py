@@ -80,6 +80,10 @@ def _run_time_worker(
                 },
             )
     except ArtifactSnapshotError as error:
+        if "exceeds the" in str(error):
+            raise SpiceTimeConversionError(
+                f"LSK artifact exceeds the {MAX_LSK_CONVERSION_BYTES} byte conversion limit"
+            ) from error
         raise SpiceTimeConversionError(str(error)) from error
     except subprocess.TimeoutExpired as error:
         raise SpiceTimeConversionError("SPICE time conversion exceeded its time limit") from error
