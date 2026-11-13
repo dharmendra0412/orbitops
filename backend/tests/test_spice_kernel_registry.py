@@ -9,10 +9,10 @@ from fastapi.testclient import TestClient
 
 import app.ephemeris.routes as spice_routes
 import app.ephemeris.time_conversion as spice_time_conversion
+from app.ephemeris.kernels import SpiceKernelArtifactRecord, SpiceKernelInspectionRecord
 from app.ephemeris.routes import get_spice_kernel_store
 from app.main import app
 from app.storage.spice_kernels import SpiceKernelAlreadyExistsError, SpiceKernelStore
-from app.ephemeris.kernels import SpiceKernelArtifactRecord, SpiceKernelInspectionRecord
 
 client = TestClient(app)
 
