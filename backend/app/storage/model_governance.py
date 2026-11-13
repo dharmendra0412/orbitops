@@ -161,6 +161,11 @@ class ModelGovernanceStore:
 
         with self._connection() as connection:
             if payload.reference_dataset_id is not None:
+                manifest_table = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'dataset_manifests'"
+                ).fetchone()
+                if manifest_table is None:
+                    raise ModelAssessmentDatasetNotFoundError(payload.reference_dataset_id)
                 dataset = connection.execute(
                     "SELECT 1 FROM dataset_manifests WHERE manifest_id = ?",
                     (payload.reference_dataset_id,),
