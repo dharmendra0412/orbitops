@@ -115,6 +115,11 @@ Requirement allocations are append-only and must reference a requirement in the 
 - `POST /api/v1/models/governance/assessments` — append verification or validation evidence for a registered model version.
 - `GET /api/v1/models/governance/assessments` — list model assessment records, optionally filtered by model ID/version.
 
+### Propulsion and power regression benchmarks
+
+- Fixed synthetic regression cases cover ideal rocket-equation delta-v and constant-average-power energy bookkeeping.
+- See [analytical model regression benchmarks](docs/ANALYTICAL_MODEL_REGRESSION_BENCHMARKS.md) for inputs, expected outputs, references, and validation boundaries. Both models remain UNVALIDATED.
+
 ### Orbital numerical regression benchmarks
 
 - Fixed regression vectors use the JPL DE440 Earth gravitational parameter and exercise circular velocity, vis-viva speed, Keplerian period, escape velocity, and ideal Hohmann transfer outputs.
