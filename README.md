@@ -126,13 +126,15 @@ Requirement allocations are append-only and must reference a requirement in the 
 - See [orbital reference benchmarks](docs/ORBITAL_REFERENCE_BENCHMARKS.md) for the constant, test geometry, expected outputs, source, and validation boundaries. These checks are software regression evidence; orbital model credibility remains UNVALIDATED.
 
 
-### SPICE kernel provenance registry
+### SPICE kernel provenance and artifact acquisition
 
 - `POST /api/v1/ephemeris/spice/kernels` — register user-declared kernel identity, type, source URL, release, SHA-256, optional coverage, time system, frames, targets, and terms.
 - `GET /api/v1/ephemeris/spice/kernels` — list registrations with limit/offset pagination.
 - `GET /api/v1/ephemeris/spice/kernels/{kernel_id}` — retrieve one immutable registration.
+- `POST /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact` — upload the binary, compute SHA-256 server-side, and persist it only when it matches the registered digest (1 GiB application limit).
+- `GET /api/v1/ephemeris/spice/kernels/{kernel_id}/artifact` — retrieve acquisition metadata, not the binary.
 
-The registry stores metadata only. The supplied checksum is not computed by ORBITOPS; source, terms, coverage, and frame declarations are not authenticated. Kernel files are not downloaded, parsed, furnished, or validated. See [SPICE kernel provenance](docs/SPICE_KERNEL_PROVENANCE.md) for scope and the next integration gates.
+Artifacts are stored under the configured `SPICE_KERNEL_STORAGE_PATH` (default `data/spice-kernels`) using a SHA-256 content-addressed key. The API never dereferences the user-supplied source URL, so this increment does not introduce server-side URL fetching or redirects. The matching digest proves only that uploaded bytes match the registered user declaration; it does not authenticate the publisher or independently trusted checksum. Kernel parsing, furnishing, and scientific validation are not implemented. See [SPICE kernel provenance](docs/SPICE_KERNEL_PROVENANCE.md).
 
 ### PDS4 label inspection API
 
