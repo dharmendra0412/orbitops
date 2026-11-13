@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -8,6 +10,7 @@ from app.missions.traceability_routes import get_requirement_traceability_store
 from app.missions.verification import VerificationRecordCreate
 from app.storage.mission_projects import MissionProjectStore
 from app.storage.mission_verification import MissionVerificationStore
+from app.missions.traceability import RequirementAllocationCreate
 from app.storage.requirement_traceability import RequirementTraceabilityStore
 from app.storage.spacecraft_configurations import SpacecraftConfigurationStore
 
@@ -231,3 +234,31 @@ def test_matrix_for_unknown_project_returns_404(tmp_path) -> None:
         assert response.status_code == 404
     finally:
         clear_overrides()
+
+
+def test_concurrent_allocations_are_persisted_without_lock_errors(tmp_path) -> None:
+    project, spacecraft, _, traceability = configured_stores(tmp_path)
+    component_ids = [f"PAY-{index:03d}" for index in range(8)]
+    spacecraft.create(
+        project.project_id,
+        SpacecraftConfigurationDraft.model_validate(spacecraft_payload(component_ids)),
+    )
+
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        allocations = list(
+            executor.map(
+                lambda component_id: traceability.create(
+                    project.project_id,
+                    RequirementAllocationCreate.model_validate(
+                        allocation_payload(component_id=component_id)
+                    ),
+                ),
+                component_ids,
+            )
+        )
+
+    assert {item.component_id for item in allocations} == set(component_ids)
+    matrix = traceability.matrix(project.project_id)
+    assert matrix is not None
+    science = next(row for row in matrix.rows if row.requirement_id == "SCI-001")
+    assert science.allocation_count == 8
