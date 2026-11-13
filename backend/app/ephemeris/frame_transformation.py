@@ -1,5 +1,4 @@
 """Parent-process integrity checks and bounded invocation for SPICE frame transforms."""
-import hashlib  # noqa: I001
 import json
 import os
 import subprocess
@@ -9,6 +8,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
 from app.ephemeris import kernels
+from app.ephemeris.artifact_snapshot import ArtifactSnapshotError, verified_artifact_snapshot
 
 
 MAX_FRAME_TRANSFORM_SECONDS = 12
@@ -37,46 +37,48 @@ def transform_frame(
     except FileNotFoundError as error:
         raise SpiceFrameTransformError("Registered FK artifact is missing from storage") from error
 
-    if not resolved_path.is_relative_to(root) or not resolved_path.is_file():
+    if not resolved_path.is_relative_to(root):
         raise SpiceFrameTransformError("FK artifact path is outside the configured storage root")
-    if resolved_path.stat().st_size > MAX_FK_TRANSFORM_BYTES:
-        raise SpiceFrameTransformError("FK artifact exceeds the 10 MiB transformation limit")
-
-    digest = hashlib.sha256()
-    with resolved_path.open("rb") as artifact_file:
-        while chunk := artifact_file.read(1024 * 1024):
-            digest.update(chunk)
-    actual_sha256 = digest.hexdigest()
-    if actual_sha256 != expected_sha256:
-        raise SpiceFrameTransformError("Stored FK artifact no longer matches its recorded SHA-256")
 
     worker_path = Path(__file__).with_name("frame_worker.py")
     backend_root = Path(__file__).resolve().parents[2]
     try:
-        completed = subprocess.run(
-            [
-                sys.executable,
-                "-I",
-                str(worker_path),
-                str(resolved_path),
-                expected_sha256,
-                request.from_frame,
-                request.to_frame,
-                str(request.et_seconds),
-                request.transform_type,
-                json.dumps(request.vector, separators=(",", ":")),
-            ],
-            cwd=backend_root,
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=MAX_FRAME_TRANSFORM_SECONDS,
-            env={
-                "PATH": os.environ.get("PATH", ""),
-                "PYTHONDONTWRITEBYTECODE": "1",
-                **{key: os.environ[key] for key in ("SYSTEMROOT", "WINDIR", "TEMP", "TMP") if key in os.environ},
-            },
-        )
+        with verified_artifact_snapshot(
+            resolved_path,
+            expected_sha256=expected_sha256,
+            max_bytes=MAX_FK_TRANSFORM_BYTES,
+            artifact_label="FK",
+        ) as (snapshot_path, actual_sha256):
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "-I",
+                    str(worker_path),
+                    str(snapshot_path),
+                    expected_sha256,
+                    request.from_frame,
+                    request.to_frame,
+                    str(request.et_seconds),
+                    request.transform_type,
+                    json.dumps(request.vector, separators=(",", ":")),
+                ],
+                cwd=backend_root,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=MAX_FRAME_TRANSFORM_SECONDS,
+                env={
+                    "PATH": os.environ.get("PATH", ""),
+                    "PYTHONDONTWRITEBYTECODE": "1",
+                    **{
+                        key: os.environ[key]
+                        for key in ("SYSTEMROOT", "WINDIR", "TEMP", "TMP")
+                        if key in os.environ
+                    },
+                },
+            )
+    except ArtifactSnapshotError as error:
+        raise SpiceFrameTransformError(str(error)) from error
     except subprocess.TimeoutExpired as error:
         raise SpiceFrameTransformError("SPICE frame transformation exceeded its time limit") from error
     except OSError as error:
