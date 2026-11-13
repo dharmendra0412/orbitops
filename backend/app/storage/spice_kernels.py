@@ -13,6 +13,7 @@ from app.ephemeris.kernels import (
     SpiceKernelInspectionRecord,
     SpiceKernelRecord,
     SpiceKernelRegistration,
+    SpiceFrameTransformRecord,
     SpiceTimeConversionRecord,
 )
 from app.storage.manifests import ManifestStore
@@ -60,6 +61,15 @@ class SpiceKernelStore:
                     payload_json TEXT NOT NULL,
                     inspected_at TEXT NOT NULL,
                     FOREIGN KEY(kernel_id) REFERENCES spice_kernel_artifacts(kernel_id)
+                )
+            """)
+            connection.execute("""
+                CREATE TABLE IF NOT EXISTS spice_frame_transformations (
+                    transformation_id TEXT PRIMARY KEY,
+                    kernel_id TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    transformed_at TEXT NOT NULL,
+                    FOREIGN KEY(kernel_id) REFERENCES spice_kernel_inspections(kernel_id)
                 )
             """)
 
@@ -189,3 +199,46 @@ class SpiceKernelStore:
                 (kernel_id, limit, offset),
             ).fetchall()
         return [SpiceTimeConversionRecord.model_validate_json(row["payload_json"]) for row in rows]
+
+
+    def create_frame_transformation(
+        self, transformation: SpiceFrameTransformRecord
+    ) -> SpiceFrameTransformRecord:
+        payload = json.dumps(
+            transformation.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+        )
+        with self._connection() as connection:
+            connection.execute(
+                """INSERT INTO spice_frame_transformations
+                   (transformation_id, kernel_id, payload_json, transformed_at)
+                   VALUES (?, ?, ?, ?)""",
+                (
+                    transformation.transformation_id,
+                    transformation.kernel_id,
+                    payload,
+                    transformation.transformed_at.isoformat(),
+                ),
+            )
+        return transformation
+
+    def get_frame_transformation(
+        self, transformation_id: str
+    ) -> SpiceFrameTransformRecord | None:
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT payload_json FROM spice_frame_transformations WHERE transformation_id = ?",
+                (transformation_id,),
+            ).fetchone()
+        return SpiceFrameTransformRecord.model_validate_json(row["payload_json"]) if row else None
+
+    def list_frame_transformations(
+        self, kernel_id: str, limit: int = 50, offset: int = 0
+    ) -> list[SpiceFrameTransformRecord]:
+        with self._connection() as connection:
+            rows = connection.execute(
+                """SELECT payload_json FROM spice_frame_transformations
+                   WHERE kernel_id = ? ORDER BY transformed_at DESC, transformation_id ASC
+                   LIMIT ? OFFSET ?""",
+                (kernel_id, limit, offset),
+            ).fetchall()
+        return [SpiceFrameTransformRecord.model_validate_json(row["payload_json"]) for row in rows]
