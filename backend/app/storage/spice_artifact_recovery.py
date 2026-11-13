@@ -62,7 +62,12 @@ def audit_spice_artifact_storage(
         if staging_fd is not None:
             try:
                 for name in sorted(os.listdir(staging_fd)):
-                    metadata = os.stat(name, dir_fd=staging_fd, follow_symlinks=False)
+                    try:
+                        metadata = os.stat(name, dir_fd=staging_fd, follow_symlinks=False)
+                    except FileNotFoundError:
+                        # An uploader may finish and unlink its staging name while
+                        # this directory snapshot is being enumerated.
+                        continue
                     age = max(0.0, current_time - metadata.st_mtime)
                     regular = stat.S_ISREG(metadata.st_mode)
                     item = {
@@ -131,6 +136,8 @@ def audit_spice_artifact_storage(
                                 summary["referenced_artifacts"] += 1
                             elif item["classification"] == "orphan_candidate":
                                 summary["orphan_candidates"] += 1
+                            elif item["classification"] == "unsafe_entry":
+                                summary["unsafe_entries"] += 1
                             else:
                                 summary["integrity_mismatches"] += 1
                     finally:
