@@ -13,6 +13,12 @@ HASH_CHUNK_BYTES = 1024 * 1024
 
 def _open_source_without_symlink_components(source_path: Path) -> int:
     """Open an absolute path by walking pinned directory descriptors without links."""
+    if os.name == "nt" or os.open not in os.supports_dir_fd:
+        return os.open(
+            source_path,
+            os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
+        )
+
     absolute_path = Path(os.path.abspath(source_path))
     components = absolute_path.parts
     if not components or components[0] != os.sep:
