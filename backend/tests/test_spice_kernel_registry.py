@@ -78,24 +78,32 @@ def test_kernel_registry_lists_with_pagination(tmp_path):
         clear_overrides()
 
 
-def test_kernel_registration_rejects_invalid_hash_and_path_like_filename():
+def test_kernel_registration_rejects_invalid_hash_and_path_like_filename(tmp_path):
+    configure_store(tmp_path)
+    try:
     invalid_hash = payload()
     invalid_hash["sha256"] = "not-a-hash"
     assert client.post("/api/v1/ephemeris/spice/kernels", json=invalid_hash).status_code == 422
 
     invalid_name = payload()
     invalid_name["file_name"] = "../naif0012.tls"
-    assert client.post("/api/v1/ephemeris/spice/kernels", json=invalid_name).status_code == 422
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=invalid_name).status_code == 422
+    finally:
+        clear_overrides()
 
 
-def test_kernel_coverage_requires_timezone_and_ordered_bounds():
+def test_kernel_coverage_requires_timezone_and_ordered_bounds(tmp_path):
+    configure_store(tmp_path)
+    try:
     invalid = payload()
     invalid["coverage_start"] = "2031-01-01T00:00:00Z"
     assert client.post("/api/v1/ephemeris/spice/kernels", json=invalid).status_code == 422
 
     missing_pair = payload()
     missing_pair["coverage_end"] = None
-    assert client.post("/api/v1/ephemeris/spice/kernels", json=missing_pair).status_code == 422
+        assert client.post("/api/v1/ephemeris/spice/kernels", json=missing_pair).status_code == 422
+    finally:
+        clear_overrides()
 
 
 def test_kernel_not_found_returns_404(tmp_path):
