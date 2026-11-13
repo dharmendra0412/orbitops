@@ -948,6 +948,8 @@ def test_spice_registry_enforces_foreign_keys_on_every_connection(tmp_path):
     ]
 
     for statement, parameters in invalid_inserts:
-        with pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY constraint failed"):
-            with store._connection() as connection:
-                connection.execute(statement, parameters)
+        with (
+            pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY constraint failed"),
+            store._connection() as connection,
+        ):
+            connection.execute(statement, parameters)
