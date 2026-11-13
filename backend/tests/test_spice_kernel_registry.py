@@ -1,6 +1,8 @@
 import hashlib
 import os
+import sqlite3
 
+import pytest
 import spiceypy as spice
 from fastapi.testclient import TestClient
 
@@ -911,3 +913,43 @@ def test_concurrent_artifact_publication_serializes_deduplication(tmp_path):
     assert artifact.stat().st_nlink == 1
     assert artifact.stat().st_mode & 0o777 == 0o444
     assert list(staging.iterdir()) == []
+
+
+
+def test_spice_registry_enforces_foreign_keys_on_every_connection(tmp_path):
+    store = SpiceKernelStore(tmp_path / "spice-kernels.sqlite3")
+
+    with store._connection() as connection:
+        assert connection.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+
+    invalid_inserts = [
+        (
+            """INSERT INTO spice_kernel_artifacts
+               (kernel_id, payload_json, acquired_at) VALUES (?, ?, ?)""",
+            ("missing-registration", "{}", "2026-01-01T00:00:00+00:00"),
+        ),
+        (
+            """INSERT INTO spice_kernel_inspections
+               (kernel_id, payload_json, inspected_at) VALUES (?, ?, ?)""",
+            ("missing-artifact", "{}", "2026-01-01T00:00:00+00:00"),
+        ),
+        (
+            """INSERT INTO spice_time_conversions
+               (conversion_id, kernel_id, payload_json, converted_at)
+               VALUES (?, ?, ?, ?)""",
+            ("conversion-1", "missing-inspection", "{}", "2026-01-01T00:00:00+00:00"),
+        ),
+        (
+            """INSERT INTO spice_frame_transformations
+               (transformation_id, kernel_id, payload_json, transformed_at)
+               VALUES (?, ?, ?, ?)""",
+            ("transform-1", "missing-inspection", "{}", "2026-01-01T00:00:00+00:00"),
+        ),
+    ]
+
+    for statement, parameters in invalid_inserts:
+        with (
+            pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY constraint failed"),
+            store._connection() as connection,
+        ):
+            connection.execute(statement, parameters)
