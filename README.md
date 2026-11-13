@@ -33,6 +33,7 @@ The engineering-grade foundation, mission workspaces, spacecraft configuration, 
 - Historical mission/spacecraft revision comparison with changed requirement/component detection and impacted-allocation reporting.
 - Frontend dataset workflow connecting file checksum inspection to source manifest registration and registered-manifest browsing.
 - Consolidated project-scoped engineering review package with findings, completeness state, and JSON export.
+- Append-only associations linking registered dataset manifests and model assessment records to mission projects.
 - Component mass, user-entered mass margin, and average power generation/load bookkeeping with explicit duty cycles.
 - Engineering-value contracts with unit dimension and provenance metadata.
 - Versioned ideal rocket-equation model and constant-average-power energy-balance model; both remain unvalidated.
@@ -79,7 +80,9 @@ The Vite development server proxies `/api` requests to `http://127.0.0.1:8000`. 
 - `POST /api/v1/missions/projects/{project_id}/traceability/allocations` — append a requirement-to-component allocation.
 - `GET /api/v1/missions/projects/{project_id}/traceability/matrix` — retrieve the latest-revision traceability matrix.
 - `GET /api/v1/missions/projects/{project_id}/traceability/change-impact` — compare selected mission and spacecraft revisions and identify allocations requiring review. Supply baseline/target revision numbers as query parameters.
-- `GET /api/v1/missions/projects/{project_id}/review-package` — compile the current project, spacecraft configuration, budgets, traceability matrix, and verification evidence into a review package.
+- `GET /api/v1/missions/projects/{project_id}/review-package` — compile the current project, spacecraft configuration, budgets, traceability matrix, verification evidence, linked datasets, and linked model assessments into a review package.
+- `POST /api/v1/missions/projects/{project_id}/evidence/datasets` and `GET .../evidence/datasets` — link/list registered dataset manifests for a mission.
+- `POST /api/v1/missions/projects/{project_id}/evidence/model-assessments` and `GET .../evidence/model-assessments` — link/list model assessment evidence for a mission.
 
 ## Spacecraft configuration API
 
