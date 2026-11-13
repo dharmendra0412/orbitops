@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import fcntl
 import hashlib
 import os
 import re
@@ -37,6 +36,8 @@ def audit_spice_artifact_storage(
         raise ValueError("stale_after_seconds must be non-negative")
     if os.name != "posix" or not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
         raise RuntimeError("SPICE storage audit requires POSIX no-follow directory support")
+
+    import fcntl
 
     current_time = time.time() if now is None else now
     root_fd = os.open(
