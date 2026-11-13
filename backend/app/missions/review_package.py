@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.missions.project_evidence import MissionDatasetLink, MissionModelAssessmentLink
 from app.missions.projects import MissionProjectRecord
 from app.missions.spacecraft import (
     SpacecraftBudgetSummary,
@@ -42,6 +43,8 @@ class ReviewPackageSummary(BaseModel):
     inconclusive_verification_record_count: int = Field(ge=0)
     stale_component_reference_count: int = Field(ge=0)
     spacecraft_component_count: int = Field(ge=0)
+    linked_dataset_count: int = Field(ge=0)
+    linked_model_assessment_count: int = Field(ge=0)
 
 
 class MissionReviewPackage(BaseModel):
@@ -54,6 +57,8 @@ class MissionReviewPackage(BaseModel):
     spacecraft_budget: SpacecraftBudgetSummary | None
     traceability_matrix: RequirementTraceabilityMatrix
     verification_records: list[VerificationRecord]
+    linked_datasets: list[MissionDatasetLink]
+    linked_model_assessments: list[MissionModelAssessmentLink]
     summary: ReviewPackageSummary
     review_state: ReviewPackageState
     findings: list[ReviewFinding]

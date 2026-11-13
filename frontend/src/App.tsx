@@ -5,7 +5,10 @@ type ApiStatus = "checking" | "online" | "offline";
 type UploadState = "idle" | "uploading" | "success" | "error";
 type UploadResult = { file_name: string; media_type: string; file_size_bytes: number; checksum_sha256: string; storage_status: string };
 type DatasetManifestSummary = { manifest_id: string; title: string; provider: string; product_id: string; release_or_version: string; file_name: string; checksum_sha256: string; retrieved_at: string };
-type MissionReviewPackage = { package_id: string; generated_at: string; review_state: "incomplete" | "review_required" | "evidence_compiled"; summary: { requirement_count: number; allocated_requirement_count: number; unallocated_requirement_count: number; requirements_without_evidence_count: number; verification_record_count: number; failed_verification_record_count: number; inconclusive_verification_record_count: number; stale_component_reference_count: number; spacecraft_component_count: number }; findings: { code: string; severity: "attention" | "information"; title: string; description: string }[]; limitations: string[] };
+type ModelAssessmentSummary = { assessment_id: string; model_id: string; model_version: string; equation_id: string; kind: string; outcome: string; performed_at: string; performed_by: string; summary: string };
+type ProjectDatasetLink = { link_id: string; manifest: DatasetManifestSummary; purpose: string; linked_by: string; linked_at: string };
+type ProjectModelAssessmentLink = { link_id: string; assessment: ModelAssessmentSummary; rationale: string; linked_by: string; linked_at: string };
+type MissionReviewPackage = { package_id: string; generated_at: string; review_state: "incomplete" | "review_required" | "evidence_compiled"; summary: { requirement_count: number; allocated_requirement_count: number; unallocated_requirement_count: number; requirements_without_evidence_count: number; verification_record_count: number; failed_verification_record_count: number; inconclusive_verification_record_count: number; stale_component_reference_count: number; spacecraft_component_count: number; linked_dataset_count: number; linked_model_assessment_count: number }; findings: { code: string; severity: "attention" | "information"; title: string; description: string }[]; limitations: string[] };
 type ModelState = "idle" | "calculating" | "success" | "error";
 type MissionRequirement = { requirement_id: string; title: string; statement: string; category: string; verification_method: string; acceptance_criteria: string; source_reference?: string };
 type MissionProjectDraft = { name: string; summary: string; target_body: string; mission_archetype: string; primary_objective: string; intended_users: string[]; requirements: MissionRequirement[] };
@@ -115,6 +118,17 @@ export default function App() {
   const [reviewPackage, setReviewPackage] = useState<MissionReviewPackage | null>(null);
   const [reviewPackageState, setReviewPackageState] = useState<ModelState>("idle");
   const [reviewPackageError, setReviewPackageError] = useState("");
+  const [modelAssessmentRecords, setModelAssessmentRecords] = useState<ModelAssessmentSummary[]>([]);
+  const [projectDatasetLinks, setProjectDatasetLinks] = useState<ProjectDatasetLink[]>([]);
+  const [projectModelAssessmentLinks, setProjectModelAssessmentLinks] = useState<ProjectModelAssessmentLink[]>([]);
+  const [selectedManifestId, setSelectedManifestId] = useState("");
+  const [datasetLinkPurpose, setDatasetLinkPurpose] = useState("");
+  const [datasetLinkState, setDatasetLinkState] = useState<ModelState>("idle");
+  const [datasetLinkError, setDatasetLinkError] = useState("");
+  const [selectedAssessmentId, setSelectedAssessmentId] = useState("");
+  const [assessmentLinkRationale, setAssessmentLinkRationale] = useState("");
+  const [assessmentLinkState, setAssessmentLinkState] = useState<ModelState>("idle");
+  const [assessmentLinkError, setAssessmentLinkError] = useState("");
   const [dryMass, setDryMass] = useState("");
   const [propellantMass, setPropellantMass] = useState("");
   const [specificImpulse, setSpecificImpulse] = useState("");
@@ -203,6 +217,7 @@ export default function App() {
       void refreshMissionProjects();
       void refreshModelGovernance();
       void refreshDatasetManifests();
+      void refreshModelAssessmentRecords();
       fetch(apiBase + "/api/v1/missions/catalog")
         .then((response) => {
           if (!response.ok) throw new Error("Mission catalogue unavailable");
@@ -219,6 +234,76 @@ export default function App() {
 
 
 
+
+
+  async function refreshModelAssessmentRecords() {
+    try {
+      const response = await fetch(apiBase + "/api/v1/models/governance/assessments");
+      if (!response.ok) return;
+      const records = await response.json() as ModelAssessmentSummary[];
+      setModelAssessmentRecords(records);
+      if (records.length > 0) setSelectedAssessmentId((current) => current || records[0].assessment_id);
+    } catch { /* Model assessment references can be refreshed on the next workspace open. */ }
+  }
+
+  async function refreshProjectEvidenceLinks(projectId: string) {
+    try {
+      const base = apiBase + "/api/v1/missions/projects/" + projectId + "/evidence";
+      const [datasetsResponse, assessmentsResponse] = await Promise.all([
+        fetch(base + "/datasets"), fetch(base + "/model-assessments"),
+      ]);
+      if (datasetsResponse.ok) setProjectDatasetLinks(await datasetsResponse.json() as ProjectDatasetLink[]);
+      if (assessmentsResponse.ok) setProjectModelAssessmentLinks(await assessmentsResponse.json() as ProjectModelAssessmentLink[]);
+    } catch { /* Evidence associations are refreshed when the project is reopened. */ }
+  }
+
+  async function linkDatasetToProject() {
+    if (!selectedProject || !selectedManifestId || datasetLinkPurpose.trim().length < 5) {
+      setDatasetLinkError("Select a registered dataset and provide its mission relevance.");
+      setDatasetLinkState("error");
+      return;
+    }
+    setDatasetLinkState("calculating");
+    setDatasetLinkError("");
+    try {
+      const response = await fetch(apiBase + "/api/v1/missions/projects/" + selectedProject.project_id + "/evidence/datasets", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ manifest_id: selectedManifestId, purpose: datasetLinkPurpose.trim(), linked_by: "Workspace user" }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to link dataset");
+      setDatasetLinkPurpose("");
+      setDatasetLinkState("success");
+      await refreshProjectEvidenceLinks(selectedProject.project_id);
+    } catch (error) {
+      setDatasetLinkError(error instanceof Error ? error.message : "Unexpected dataset linking error");
+      setDatasetLinkState("error");
+    }
+  }
+
+  async function linkAssessmentToProject() {
+    if (!selectedProject || !selectedAssessmentId || assessmentLinkRationale.trim().length < 5) {
+      setAssessmentLinkError("Select a model assessment and provide its relevance to this mission.");
+      setAssessmentLinkState("error");
+      return;
+    }
+    setAssessmentLinkState("calculating");
+    setAssessmentLinkError("");
+    try {
+      const response = await fetch(apiBase + "/api/v1/missions/projects/" + selectedProject.project_id + "/evidence/model-assessments", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assessment_id: selectedAssessmentId, rationale: assessmentLinkRationale.trim(), linked_by: "Workspace user" }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to link model assessment");
+      setAssessmentLinkRationale("");
+      setAssessmentLinkState("success");
+      await refreshProjectEvidenceLinks(selectedProject.project_id);
+    } catch (error) {
+      setAssessmentLinkError(error instanceof Error ? error.message : "Unexpected model assessment linking error");
+      setAssessmentLinkState("error");
+    }
+  }
 
   async function compileReviewPackage() {
     if (!selectedProject) return;
@@ -571,6 +656,10 @@ export default function App() {
       setSpacecraftComponents([]);
       setSpacecraftError("");
       setSpacecraftState("idle");
+      setProjectDatasetLinks([]);
+      setProjectModelAssessmentLinks([]);
+      setReviewPackage(null);
+      setReviewPackageError("");
       setProjectState("success");
       await refreshMissionProjects();
     } catch (error) {
@@ -585,10 +674,14 @@ export default function App() {
       const result = await response.json();
       if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Unable to load mission project");
       setSelectedProject(result as MissionProjectRecord);
+      setProjectDatasetLinks([]);
+      setProjectModelAssessmentLinks([]);
+      setReviewPackage(null);
       setTargetMissionRevision(String(result.latest_revision));
       await refreshVerificationRecords(projectId);
       await refreshSpacecraft(projectId);
       await refreshTraceability(projectId);
+      await refreshProjectEvidenceLinks(projectId);
     } catch (error) {
       setProjectError(error instanceof Error ? error.message : "Unable to load mission project");
       setProjectState("error");
@@ -982,10 +1075,43 @@ export default function App() {
             <div><dt>Allocated</dt><dd>{reviewPackage.summary.allocated_requirement_count}</dd></div>
             <div><dt>Evidence records</dt><dd>{reviewPackage.summary.verification_record_count}</dd></div>
           </div>
+          <div className="model-meta">Linked datasets {reviewPackage.summary.linked_dataset_count} · Linked model assessments {reviewPackage.summary.linked_model_assessment_count}</div>
           <div className="model-meta">Generated {new Date(reviewPackage.generated_at).toLocaleString()} · Package {reviewPackage.package_id}</div>
           <div className="model-assumptions"><strong>Review findings</strong><ul>{reviewPackage.findings.map((item) => <li key={item.code}><strong>{item.severity.toUpperCase()} · {item.title}:</strong> {item.description}</li>)}</ul><strong>Package limitations</strong><ul>{reviewPackage.limitations.map((item) => <li key={item}>{item}</li>)}</ul></div>
           <button className="planet-chip" type="button" onClick={downloadReviewPackage}><Database size={15} /> Download JSON review package</button>
         </div>}
+      </section>}
+
+
+      {selectedProject && <section className="model-panel project-evidence-panel">
+        <div className="ingestion-heading"><span className="card-icon"><Database size={20} /></span><div><div className="eyebrow">PROJECT PROVENANCE · EVIDENCE ASSOCIATIONS</div><h2>Link datasets and model assessments</h2></div></div>
+        <p className="ingestion-copy">Associate reusable, registered dataset manifests and model assessment records with this mission. Linking records provenance; it does not independently validate the evidence.</p>
+        <div className="model-form">
+          <label className="model-field">Registered dataset<select value={selectedManifestId} onChange={(e) => setSelectedManifestId(e.target.value)}>
+            <option value="">Select a dataset manifest</option>
+            {datasetManifests.map((item) => <option key={item.manifest_id} value={item.manifest_id}>{item.provider} · {item.product_id} · {item.release_or_version}</option>)}
+          </select></label>
+          <label className="model-field">Mission relevance<input value={datasetLinkPurpose} onChange={(e) => setDatasetLinkPurpose(e.target.value)} placeholder="Explain how this dataset supports the mission" /></label>
+        </div>
+        <button className="planet-chip" type="button" onClick={linkDatasetToProject} disabled={!selectedManifestId || datasetLinkState === "calculating"}>{datasetLinkState === "calculating" ? "Linking dataset..." : "Link dataset to mission"}</button>
+        {datasetLinkError && <p className="inline-error">{datasetLinkError}</p>}
+        <div className="run-list">
+          {projectDatasetLinks.map((link) => <div className="run-row" key={link.link_id}><div className="run-row-main"><strong>{link.manifest.title}</strong><span>{link.manifest.provider} · {link.manifest.product_id}</span><small>{link.purpose}</small></div></div>)}
+          {projectDatasetLinks.length === 0 && <p className="run-empty">No dataset manifests linked to this mission.</p>}
+        </div>
+        <div className="model-form">
+          <label className="model-field">Model assessment<select value={selectedAssessmentId} onChange={(e) => setSelectedAssessmentId(e.target.value)}>
+            <option value="">Select a model assessment</option>
+            {modelAssessmentRecords.map((item) => <option key={item.assessment_id} value={item.assessment_id}>{item.model_id} · {item.kind} · {item.outcome} · {item.performed_at.slice(0, 10)}</option>)}
+          </select></label>
+          <label className="model-field">Mission relevance<input value={assessmentLinkRationale} onChange={(e) => setAssessmentLinkRationale(e.target.value)} placeholder="Explain how this assessment supports the mission" /></label>
+        </div>
+        <button className="planet-chip" type="button" onClick={linkAssessmentToProject} disabled={!selectedAssessmentId || assessmentLinkState === "calculating"}>{assessmentLinkState === "calculating" ? "Linking assessment..." : "Link model assessment to mission"}</button>
+        {assessmentLinkError && <p className="inline-error">{assessmentLinkError}</p>}
+        <div className="run-list">
+          {projectModelAssessmentLinks.map((link) => <div className="run-row" key={link.link_id}><div className="run-row-main"><strong>{link.assessment.model_id} · {link.assessment.kind}</strong><span>{link.assessment.outcome} · {link.assessment.equation_id} · v{link.assessment.model_version}</span><small>{link.rationale}</small></div></div>)}
+          {projectModelAssessmentLinks.length === 0 && <p className="run-empty">No model assessments linked to this mission.</p>}
+        </div>
       </section>}
 
       <section className="ingestion-panel">

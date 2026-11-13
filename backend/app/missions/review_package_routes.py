@@ -13,6 +13,7 @@ from app.missions.review_package import (
 )
 from app.missions.spacecraft import calculate_budgets
 from app.settings import settings
+from app.storage.mission_evidence import MissionEvidenceStore
 from app.storage.mission_projects import MissionProjectStore
 from app.storage.mission_verification import MissionVerificationStore
 from app.storage.requirement_traceability import RequirementTraceabilityStore
@@ -37,6 +38,10 @@ def get_review_spacecraft_store() -> SpacecraftConfigurationStore:
     return SpacecraftConfigurationStore(settings.database_path)
 
 
+def get_review_evidence_store() -> MissionEvidenceStore:
+    return MissionEvidenceStore(settings.database_path)
+
+
 @router.get("/review-package", response_model=MissionReviewPackage)
 def compile_mission_review_package(
     project_id: UUID,
@@ -44,6 +49,7 @@ def compile_mission_review_package(
     verification_store: Annotated[MissionVerificationStore, Depends(get_review_verification_store)],
     traceability_store: Annotated[RequirementTraceabilityStore, Depends(get_review_traceability_store)],
     spacecraft_store: Annotated[SpacecraftConfigurationStore, Depends(get_review_spacecraft_store)],
+    evidence_store: Annotated[MissionEvidenceStore, Depends(get_review_evidence_store)],
 ) -> MissionReviewPackage:
     """Compile project-scoped engineering records without granting acceptance."""
     project = project_store.get(project_id)
@@ -51,6 +57,8 @@ def compile_mission_review_package(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mission project not found")
 
     verification_records = verification_store.list_for_project(project_id) or []
+    linked_datasets = evidence_store.list_dataset_links(project_id) or []
+    linked_model_assessments = evidence_store.list_model_assessment_links(project_id) or []
     spacecraft = spacecraft_store.get(project_id)
     budget = calculate_budgets(spacecraft) if spacecraft is not None else None
     matrix = traceability_store.matrix(project_id)
@@ -161,6 +169,8 @@ def compile_mission_review_package(
         spacecraft_budget=budget,
         traceability_matrix=matrix,
         verification_records=verification_records,
+        linked_datasets=linked_datasets,
+        linked_model_assessments=linked_model_assessments,
         summary=ReviewPackageSummary(
             requirement_count=len(requirements),
             allocated_requirement_count=matrix.allocated_requirement_count,
@@ -171,6 +181,8 @@ def compile_mission_review_package(
             inconclusive_verification_record_count=inconclusive_count,
             stale_component_reference_count=stale_count,
             spacecraft_component_count=component_count,
+            linked_dataset_count=len(linked_datasets),
+            linked_model_assessment_count=len(linked_model_assessments),
         ),
         review_state=review_state,
         findings=findings,
@@ -178,7 +190,7 @@ def compile_mission_review_package(
             "This package compiles project-scoped records for human review; it is not a design approval or readiness certification.",
             "A requirement allocation does not prove component compliance.",
             "Verification evidence outcomes are user-recorded evidence entries and are not independently authenticated or accepted.",
-            "Model assessments and dataset manifests are not yet linked to mission projects and are therefore not included.",
+            "Linked dataset manifests and model assessments are included as metadata references; source authenticity and scientific applicability are not independently verified.",
             "Mass and power values remain user-supplied bookkeeping inputs; the budget is not an integrated spacecraft simulation.",
             "Authentication, authorization, reviewer independence, and controlled approval signatures are not implemented.",
         ],
