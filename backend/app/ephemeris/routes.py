@@ -98,7 +98,7 @@ async def upload_spice_kernel_artifact(
                 size_bytes += len(chunk)
                 if size_bytes > MAX_KERNEL_UPLOAD_BYTES:
                     raise HTTPException(
-                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                         detail=f"Kernel upload exceeds {MAX_KERNEL_UPLOAD_BYTES} byte limit",
                     )
                 digest.update(chunk)
@@ -108,7 +108,7 @@ async def upload_spice_kernel_artifact(
 
         if size_bytes == 0:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Uploaded kernel artifact must not be empty",
             )
 
@@ -116,7 +116,7 @@ async def upload_spice_kernel_artifact(
         declared_sha256 = registration_record.registration.sha256
         if computed_sha256 != declared_sha256:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Uploaded artifact SHA-256 does not match the registered digest",
             )
 
@@ -198,7 +198,7 @@ def inspect_spice_kernel_artifact(
         return store.create_inspection(inspection)
     except SpiceInspectionError as error:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(error),
         ) from error
     except SpiceKernelAlreadyExistsError as error:
