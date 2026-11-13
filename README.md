@@ -12,7 +12,7 @@ ORBITOPS targets mission-analysis workflows across all eight planets, with multi
 
 See [the current engineering status and remaining release gates](docs/ENGINEERING_STATUS.md). The older `docs/ORBITOPS_CANONICAL/` package is retained as historical project material and is not the source of truth for the engineering-grade branch.
 
-The engineering-grade foundation and mission-workspace services are implemented on feature branches. The spacecraft configuration workstream is under review and remains subject to automated CI and engineering acceptance.
+The engineering-grade foundation, mission workspaces, spacecraft configuration, and requirement traceability workstreams are developed on feature branches and remain subject to automated CI and engineering acceptance.
 
 ## Current stack
 
@@ -28,6 +28,7 @@ The engineering-grade foundation and mission-workspace services are implemented 
 - Append-only requirement verification evidence records linked to the latest project revision, with method consistency checks and evidence references.
 - Spacecraft component contracts with typed subsystem classification and provenance-aware mass and power values.
 - Append-only spacecraft configuration revisions linked to mission projects.
+- Requirement-to-component allocation records and a latest-revision traceability matrix, including unallocated requirements, stale component references, and verification evidence counts.
 - Component mass, user-entered mass margin, and average power generation/load bookkeeping with explicit duty cycles.
 - Engineering-value contracts with unit dimension and provenance metadata.
 - Versioned ideal rocket-equation model and constant-average-power energy-balance model; both remain unvalidated.
@@ -71,6 +72,8 @@ The Vite development server proxies `/api` requests to `http://127.0.0.1:8000`. 
 - `POST /api/v1/missions/projects/{project_id}/revisions` — append a new immutable revision.
 - `POST /api/v1/missions/projects/{project_id}/verification-records` — append verification evidence.
 - `GET /api/v1/missions/projects/{project_id}/verification-records` — list recorded evidence.
+- `POST /api/v1/missions/projects/{project_id}/traceability/allocations` — append a requirement-to-component allocation.
+- `GET /api/v1/missions/projects/{project_id}/traceability/matrix` — retrieve the latest-revision traceability matrix.
 
 ## Spacecraft configuration API
 
@@ -81,7 +84,7 @@ The Vite development server proxies `/api` requests to `http://127.0.0.1:8000`. 
 
 Each component contains a subsystem, unique revision-scoped identifier, mass value and optional power draw/generation values. Engineering quantities use the shared EngineeringValue contract, including provenance and credibility metadata. The mass margin is user-specified and is applied to the sum of component masses. Average power is calculated from component power values and explicit duty cycles. These calculations are not a validated spacecraft design or feasibility assessment.
 
-Mission requirement evidence is append-only; a recorded `pass` is not independent acceptance, formal closure, safety approval or flight qualification. Evidence references are user-supplied and not authenticated. Authentication and per-user/team authorization are not implemented, so these APIs must not be exposed as a multi-tenant production service.
+Requirement allocations are append-only and must reference a requirement in the latest mission revision and a component in the latest spacecraft configuration. Allocations do not prove compliance. The matrix flags component references that become stale after a spacecraft configuration revision. Mission requirement evidence is append-only; a recorded `pass` is not independent acceptance, formal closure, safety approval or flight qualification. Evidence references are user-supplied and not authenticated. Authentication and per-user/team authorization are not implemented, so these APIs must not be exposed as a multi-tenant production service.
 
 ## Dataset and model APIs
 
