@@ -264,11 +264,11 @@ export default function App() {
       const base = apiBase + "/api/v1/missions/projects/" + projectId + "/spacecraft";
       const response = await fetch(base + "/configuration");
       if (response.status === 404) {
-        setSpacecraftRecord(null); setSpacecraftBudget(null); setSpacecraftComponents([]); return;
+        setSpacecraftRecord(null); setSpacecraftBudget(null); setSpacecraftComponents([]); setTraceabilityComponentId(""); return;
       }
       if (!response.ok) throw new Error("Unable to load spacecraft configuration");
       const record = await response.json() as SpacecraftRecord;
-      setSpacecraftRecord(record); setSpacecraftComponents(record.revision.draft.components);
+      setSpacecraftRecord(record); setSpacecraftComponents(record.revision.draft.components);\n      setTraceabilityComponentId(record.revision.draft.components[0]?.component_id ?? "");
       const budgetResponse = await fetch(base + "/budgets");
       if (budgetResponse.ok) setSpacecraftBudget(await budgetResponse.json() as SpacecraftBudget);
     } catch (error) { setSpacecraftError(error instanceof Error ? error.message : "Unable to load spacecraft data"); }
