@@ -11,12 +11,12 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 
 from app.ephemeris.inspection import SpiceInspectionError, inspect_artifact
 from app.ephemeris.kernels import (
+    SpiceEtToUtcRequest,
     SpiceKernelArtifactRecord,
     SpiceKernelInspectionRecord,
     SpiceKernelRecord,
     SpiceKernelRegistration,
     SpiceTimeConversionRecord,
-    SpiceEtToUtcRequest,
     SpiceUtcToEtRequest,
 )
 from app.ephemeris.time_conversion import (
