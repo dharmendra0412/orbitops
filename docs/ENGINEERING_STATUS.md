@@ -37,7 +37,9 @@
 - Deterministic orbital regression vectors using the JPL DE440 Earth GM for circular velocity, vis-viva, Keplerian period, escape velocity, and ideal Hohmann transfer.
 - Fixed synthetic numerical regression cases for ideal rocket-equation delta-v and constant-average-power energy balance.
 - Append-only SPICE kernel metadata registry with typed kernel families, source/release metadata, user-declared SHA-256, optional timezone-aware coverage, time-system, frame, target and terms fields.
-- Bounded SPICE kernel artifact upload (1 GiB application limit), server-computed SHA-256 comparison, temporary staging cleanup, and content-addressed local storage; artifacts remain unparsed and unvalidated.
+- Bounded SPICE kernel artifact upload (1 GiB application limit), server-computed SHA-256 comparison, temporary staging cleanup, and content-addressed local storage.
+- Pinned SpiceyPy/CSPICE 8.4.0 inspection subprocess with a 12-second timeout and best-effort POSIX resource limits; validates detected kernel family, extracts SPK object IDs/ET coverage, binary PCK frame IDs, and DSK object IDs. Meta-kernels are not furnished.
+- SPICE inspection results are immutable SQLite records; parsing is structural inspection only, not scientific validation.
 - PR #14 artifact-acquisition CI run #369 passed backend lint, all 121 backend tests, frontend TypeScript typecheck, and frontend production build.
 
 ## Spacecraft configuration API
