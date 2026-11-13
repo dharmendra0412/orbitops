@@ -3,9 +3,9 @@
 Registration stores user-declared metadata only. It does not download, hash,
 parse, furnish, or scientifically validate a kernel.
 """
+import re
 from datetime import datetime
 from enum import StrEnum
-import re
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
