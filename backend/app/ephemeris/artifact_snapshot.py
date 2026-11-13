@@ -3,9 +3,9 @@ import hashlib
 import os
 import stat
 import tempfile
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from collections.abc import Iterator
 
 
 HASH_CHUNK_BYTES = 1024 * 1024
