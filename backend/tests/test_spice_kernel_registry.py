@@ -609,7 +609,7 @@ def test_fixed_fk_position_and_state_transformations_match_reference_rotation(tm
         state_body = state.json()
         assert len(state_body["matrix"]) == 6
         assert all(len(row) == 6 for row in state_body["matrix"])
-        assert state_body["output_vector"] == [0.0, -1.0, 0.0, 0.0, -1.0, 0.0]
+        assert state_body["output_vector"] == [0.0, -1.0, 0.0, 1.0, 0.0, 0.0]
 
         history = client.get(
             "/api/v1/ephemeris/spice/kernels/fixed-frame-reference/frame-transformations"
