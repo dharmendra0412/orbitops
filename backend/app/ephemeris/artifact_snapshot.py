@@ -1,13 +1,11 @@
 """Private immutable snapshots for verified content-addressed SPICE artifacts."""
-from __future__ import annotations
-
 import hashlib
 import os
 import stat
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
+from collections.abc import Iterator
 
 
 HASH_CHUNK_BYTES = 1024 * 1024
