@@ -10,8 +10,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 
 from app.ephemeris.inspection import SpiceInspectionError, inspect_artifact
+from app.ephemeris.frame_transformation import SpiceFrameTransformError, transform_frame
 from app.ephemeris.kernels import (
     SpiceEtToUtcRequest,
+    SpiceFrameTransformRecord,
+    SpiceFrameTransformRequest,
     SpiceKernelArtifactRecord,
     SpiceKernelInspectionRecord,
     SpiceKernelRecord,
@@ -357,3 +360,87 @@ def convert_spice_et_to_utc(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(error),
         ) from error
+
+@router.post(
+    "/{kernel_id}/frame-transformations",
+    response_model=SpiceFrameTransformRecord,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_spice_frame_transformation(
+    kernel_id: str,
+    payload: SpiceFrameTransformRequest,
+    store: Annotated[SpiceKernelStore, Depends(get_spice_kernel_store)],
+) -> SpiceFrameTransformRecord:
+    """Transform positions/states using one acquired, inspected fixed-frame FK."""
+    registration = store.get(kernel_id)
+    if registration is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SPICE kernel not found")
+    if registration.registration.kernel_type.value != "FK":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This transformation endpoint requires a registered FK kernel",
+        )
+
+    artifact = store.get_artifact(kernel_id)
+    inspection = store.get_inspection(kernel_id)
+    if artifact is None or inspection is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Acquire and inspect the FK artifact before frame transformation",
+        )
+    if inspection.detected_architecture.upper() != "KPL" or inspection.detected_kernel_type.upper() != "FK":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The inspected artifact is not a compatible text FK",
+        )
+
+    try:
+        transformation = transform_frame(
+            kernel_id=kernel_id,
+            request=payload,
+            expected_sha256=artifact.sha256,
+            storage_root=settings.spice_kernel_storage_path,
+        )
+        return store.create_frame_transformation(transformation)
+    except SpiceFrameTransformError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
+
+
+@router.get(
+    "/{kernel_id}/frame-transformations",
+    response_model=list[SpiceFrameTransformRecord],
+)
+def list_spice_frame_transformations(
+    kernel_id: str,
+    store: Annotated[SpiceKernelStore, Depends(get_spice_kernel_store)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[SpiceFrameTransformRecord]:
+    """List immutable transformations for one registered FK."""
+    if store.get(kernel_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SPICE kernel not found")
+    return store.list_frame_transformations(kernel_id, limit=limit, offset=offset)
+
+
+@router.get(
+    "/{kernel_id}/frame-transformations/{transformation_id}",
+    response_model=SpiceFrameTransformRecord,
+)
+def get_spice_frame_transformation(
+    kernel_id: str,
+    transformation_id: str,
+    store: Annotated[SpiceKernelStore, Depends(get_spice_kernel_store)],
+) -> SpiceFrameTransformRecord:
+    """Retrieve one immutable SPICE frame transformation."""
+    if store.get(kernel_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SPICE kernel not found")
+    transformation = store.get_frame_transformation(transformation_id)
+    if transformation is None or transformation.kernel_id != kernel_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="SPICE frame transformation not found",
+        )
+    return transformation
